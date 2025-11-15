@@ -13,14 +13,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
-        <!-- Health Connect integration -->
-        <activity
-            android:name="androidx.health.connect.client.PermissionController"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-            </intent-filter>
-        </activity>
+        <!-- Health Connect integration - removed activity declaration as PermissionController is not an Activity -->
     </application>
 
 </manifest>

@@ -1,6 +1,6 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.library") version "8.1.0"
+    id("org.jetbrains.kotlin.android") version "1.9.0"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
     id("maven-publish")
 }
@@ -30,6 +30,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -38,6 +39,9 @@ android {
 }
 
 dependencies {
+    // Core library desugaring for Java 8+ APIs on older Android versions
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")

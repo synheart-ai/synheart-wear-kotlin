@@ -9,9 +9,6 @@
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
     <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
 
-    <!-- Internet for cloud sync (optional) -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-
     <application>
         <!-- Health Connect integration - removed activity declaration as PermissionController is not an Activity -->
     </application>

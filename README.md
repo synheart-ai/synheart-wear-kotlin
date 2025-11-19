@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Android API 21+](https://img.shields.io/badge/API-21%2B-brightgreen.svg)](https://android-arsenal.com/api?level=21)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.8%2B-blue.svg)](https://kotlinlang.org)
+[![JitPack](https://jitpack.io/v/synheart-ai/synheart-wear-android.svg)](https://jitpack.io/#synheart-ai/synheart-wear-android)
 
 **Unified wearable SDK for Android** — Stream biometric data from Apple Watch, Fitbit, Garmin, Whoop, and Samsung devices via Health Connect with a single standardized API.
 
@@ -18,24 +19,41 @@
 
 ## 📦 Installation
 
-### Gradle (Kotlin DSL)
+### Gradle (Kotlin DSL) - JitPack
 
-Add to your `build.gradle.kts`:
+**Step 1:** Add JitPack repository to your root `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+Or in your root `build.gradle.kts`:
+
+```kotlin
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+**Step 2:** Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("ai.synheart:synheart-wear:0.1.0")
+    implementation("com.github.synheart-ai:synheart-wear-android:0.1.0")
 }
 ```
 
-**Note**: Make sure to add the Maven repository where the library is published. If publishing to Maven Central, add:
-
-```kotlin
-repositories {
-    mavenCentral()
-    // or your custom Maven repository
-}
-```
+> **Note**: Replace `0.1.0` with the latest release version from [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) or use `main-SNAPSHOT` for the latest development version.
 
 ### Requirements
 
@@ -298,6 +316,44 @@ Add Health Connect permissions to your `AndroidManifest.xml`:
 ```bash
 gradle wrapper --gradle-version 8.0
 ```
+
+## 🚀 Releasing (for Maintainers)
+
+This project uses [JitPack](https://jitpack.io) for automated builds and releases. When you create a GitHub release, JitPack automatically builds and publishes the library.
+
+### Creating a Release
+
+1. **Update version in `build.gradle.kts`**:
+   ```kotlin
+   version = "0.2.0"  // Update this
+   ```
+
+2. **Commit and push changes**:
+   ```bash
+   git add .
+   git commit -m "chore: bump version to 0.2.0"
+   git push origin main
+   ```
+
+3. **Create a GitHub release**:
+   - Go to the GitHub repository
+   - Click "Releases" → "Create a new release"
+   - Create a new tag (e.g., `v0.2.0`)
+   - Set the release title and description
+   - Click "Publish release"
+
+4. **Monitor the build**:
+   - Check the [GitHub Actions](https://github.com/synheart-ai/synheart-wear-android/actions) for build status
+   - Check [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) for the build log
+
+### Release Checklist
+
+- [ ] All tests pass locally (`./gradlew test`)
+- [ ] Version number updated in `build.gradle.kts`
+- [ ] CHANGELOG updated (if applicable)
+- [ ] Documentation updated
+- [ ] GitHub release created with appropriate tag
+- [ ] JitPack build succeeded
 
 ## 🚨 Error Handling
 

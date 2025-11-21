@@ -11,6 +11,7 @@
 
 - **📱 Health Connect Integration**: Native Android biometric data access
 - **⌚ Multi-Device Support**: Apple Watch, Fitbit, Garmin, Whoop, Samsung Watch
+- **☁️ Cloud Wearables**: Direct integration with WHOOP, Garmin, and Fitbit cloud APIs
 - **🔄 Real-Time Streaming**: Live HR and HRV data streams
 - **📊 Unified Schema**: Consistent data format across all devices
 - **🔒 Privacy-First**: Consent-based data access with AES-256 encryption
@@ -67,6 +68,8 @@ dependencies {
 
 ### 1. Initialize the SDK
 
+#### Local Wearables (Health Connect, Samsung Health)
+
 ```kotlin
 import ai.synheart.wear.SynheartWear
 import ai.synheart.wear.config.SynheartWearConfig
@@ -88,6 +91,43 @@ class MyApplication : Application() {
                 enableLocalCaching = true,
                 enableEncryption = true,
                 streamInterval = 3000L // 3 seconds
+            )
+        )
+    }
+}
+```
+
+#### Cloud Wearables (WHOOP, Garmin, Fitbit)
+
+```kotlin
+import ai.synheart.wear.SynheartWear
+import ai.synheart.wear.config.SynheartWearConfig
+import ai.synheart.wear.config.CloudConfig
+import ai.synheart.wear.models.DeviceAdapter
+
+class MyApplication : Application() {
+    lateinit var synheartWear: SynheartWear
+
+    override fun onCreate() {
+        super.onCreate()
+
+        synheartWear = SynheartWear(
+            context = this,
+            config = SynheartWearConfig(
+                enabledAdapters = setOf(
+                    DeviceAdapter.HEALTH_CONNECT,
+                    DeviceAdapter.WHOOP,  // Cloud wearable
+                    DeviceAdapter.GARMIN  // Cloud wearable
+                ),
+                enableLocalCaching = true,
+                enableEncryption = true,
+                streamInterval = 3000L,
+                cloudConfig = CloudConfig(
+                    baseUrl = "https://api.wear.synheart.io/v1",
+                    appId = "your-app-id",  // Get from Synheart Dashboard
+                    organizationId = "your-org-id",  // Optional
+                    enableDebugLogging = false
+                )
             )
         )
     }
@@ -168,6 +208,128 @@ lifecycleScope.launch {
 }
 ```
 
+## ☁️ Cloud Wearables Integration
+
+The SDK supports direct integration with cloud-based wearables (WHOOP, Garmin, Fitbit) through the Synheart Wear Service backend.
+
+### Connecting to Cloud Wearables
+
+#### 1. Get Cloud Adapter
+
+```kotlin
+val whoopAdapter = synheartWear.getCloudAdapter(DeviceAdapter.WHOOP)
+    ?: throw Exception("WHOOP adapter not enabled")
+```
+
+#### 2. Start OAuth Flow
+
+```kotlin
+// Start OAuth authorization
+val authUrl = whoopAdapter.startOAuthFlow(
+    redirectUri = "myapp://oauth/callback",  // Your app's deep link
+    state = UUID.randomUUID().toString()
+)
+
+// Open authorization URL in browser
+val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl))
+startActivity(intent)
+```
+
+#### 3. Handle OAuth Callback
+
+```kotlin
+// In your deep link handler (e.g., in MainActivity)
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    
+    intent?.data?.let { uri ->
+        if (uri.scheme == "myapp" && uri.host == "oauth" && uri.path == "/callback") {
+            val code = uri.getQueryParameter("code")
+            val state = uri.getQueryParameter("state")
+            
+            if (code != null && state != null) {
+                lifecycleScope.launch {
+                    try {
+                        val userId = whoopAdapter.completeOAuthFlow(
+                            code = code,
+                            state = state,
+                            redirectUri = "myapp://oauth/callback"
+                        )
+                        Log.d(TAG, "Successfully connected! User ID: $userId")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "OAuth failed: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+#### 4. Configure Deep Link in AndroidManifest.xml
+
+```xml
+<activity android:name=".MainActivity">
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="myapp"
+            android:host="oauth"
+            android:pathPrefix="/callback" />
+    </intent-filter>
+</activity>
+```
+
+### Fetching Cloud Data
+
+Once connected, you can fetch data from cloud wearables:
+
+```kotlin
+// Check if connected
+if (whoopAdapter.isConnectedToCloud()) {
+    // Fetch recovery data
+    val recoveryData = whoopAdapter.fetchRecoveryData(
+        startDate = Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000),
+        endDate = Date(),
+        limit = 25
+    )
+    
+    // Fetch sleep data
+    val sleepData = whoopAdapter.fetchSleepData(
+        startDate = Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000),
+        endDate = Date(),
+        limit = 25
+    )
+    
+    Log.d(TAG, "Recovery records: ${recoveryData.size}")
+    Log.d(TAG, "Sleep records: ${sleepData.size}")
+}
+```
+
+### Disconnecting
+
+```kotlin
+// Disconnect from cloud wearable
+whoopAdapter.disconnect()
+```
+
+### Unified Data Access
+
+Cloud wearables work seamlessly with the SDK's unified API:
+
+```kotlin
+// Read metrics from all sources (local + cloud)
+val metrics = synheartWear.readMetrics()
+Log.d(TAG, "Heart Rate: ${metrics.getMetric(MetricType.HR)} bpm")
+
+// Stream data (includes cloud sources)
+synheartWear.streamHR().collect { metrics ->
+    Log.d(TAG, "Live HR: ${metrics.getMetric(MetricType.HR)} bpm")
+}
+```
+
 ## 📊 Data Schema
 
 All wearable data follows the **Synheart Data Schema v1.0**:
@@ -240,11 +402,17 @@ synheartWear.clearOldCache(maxAgeMs = 30 * 24 * 60 * 60 * 1000L)
 | Device | Platform | Integration | Status |
 |--------|----------|-------------|--------|
 | Apple Watch | Android | Health Connect | ✅ Ready |
-| Fitbit | Android | Health Connect | ✅ Ready |
-| Garmin | Android | Health Connect | 🔄 In Development |
-| Whoop | Android | REST API | 📋 Planned |
+| Fitbit | Android | Health Connect + Cloud API | ✅ Ready (Both) |
+| Garmin | Android | Health Connect + Cloud API | ✅ Ready (Both) |
+| WHOOP | Android | Cloud API | ✅ Ready |
 | Samsung Watch | Android | Samsung Health SDK | ✅ Ready |
 | Google Fit | Android | Health Connect | ✅ Ready |
+
+### Integration Methods
+
+- **Health Connect**: Native Android integration for local device data
+- **Cloud API**: Direct integration with vendor cloud services via Synheart Wear Service backend
+- **Samsung Health SDK**: Native Samsung Health integration
 
 ## 🔒 Privacy & Security
 

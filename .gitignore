@@ -123,3 +123,6 @@ buildNumber.properties
 # Virtual machine crash logs
 hs_err_pid*
 
+# docs folder from backend
+docs/
+synheart-wear-swift-main

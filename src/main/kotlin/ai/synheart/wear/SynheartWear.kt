@@ -4,7 +4,10 @@ import android.content.Context
 import ai.synheart.wear.config.SynheartWearConfig
 import ai.synheart.wear.models.*
 import ai.synheart.wear.adapters.HealthConnectAdapter
+import ai.synheart.wear.adapters.CloudWearableAdapter
 import ai.synheart.wear.adapters.WearAdapter
+import ai.synheart.wear.adapters.WhoopProvider
+import ai.synheart.wear.adapters.WearableProvider
 import ai.synheart.wear.cache.LocalCache
 import ai.synheart.wear.consent.ConsentManager
 import ai.synheart.wear.normalization.Normalizer
@@ -29,10 +32,42 @@ class SynheartWear(
     private val consentManager = ConsentManager(context)
     private val localCache = LocalCache(context, config.enableEncryption)
 
+    // Wearable providers for cloud integrations
+    private var whoopProvider: WhoopProvider? = null
+
     private val adapterRegistry: Map<DeviceAdapter, WearAdapter> by lazy {
-        mapOf(
+        val adapters = mutableMapOf<DeviceAdapter, WearAdapter>(
             DeviceAdapter.HEALTH_CONNECT to HealthConnectAdapter(context)
         )
+
+        // Add cloud adapters if cloud config is provided
+        config.cloudConfig?.let { cloudConfig ->
+            // Initialize WHOOP provider if enabled
+            if (DeviceAdapter.WHOOP in config.enabledAdapters) {
+                whoopProvider = WhoopProvider(context, cloudConfig)
+                adapters[DeviceAdapter.WHOOP] = CloudWearableAdapter(
+                    context = context,
+                    vendor = DeviceAdapter.WHOOP,
+                    cloudConfig = cloudConfig
+                )
+            }
+            if (DeviceAdapter.GARMIN in config.enabledAdapters) {
+                adapters[DeviceAdapter.GARMIN] = CloudWearableAdapter(
+                    context = context,
+                    vendor = DeviceAdapter.GARMIN,
+                    cloudConfig = cloudConfig
+                )
+            }
+            if (DeviceAdapter.FITBIT in config.enabledAdapters) {
+                adapters[DeviceAdapter.FITBIT] = CloudWearableAdapter(
+                    context = context,
+                    vendor = DeviceAdapter.FITBIT,
+                    cloudConfig = cloudConfig
+                )
+            }
+        }
+
+        adapters.toMap()
     }
 
     /**
@@ -102,6 +137,9 @@ class SynheartWear(
     /**
      * Read current biometric metrics from all enabled adapters
      *
+     * Reads metrics from all available sources (Health Connect and connected cloud providers)
+     * and merges them into a unified WearMetrics object.
+     *
      * @param isRealTime Whether to read real-time data or historical snapshot
      * @return Unified WearMetrics containing all available biometric data
      * @throws SynheartWearException if metrics cannot be read
@@ -113,18 +151,58 @@ class SynheartWear(
             // Validate consents
             consentManager.validateConsents(getRequiredPermissions())
 
-            // Gather data from enabled adapters
+            val allMetrics = mutableListOf<WearMetrics>()
+
+            // Gather data from enabled adapters (Health Connect, etc.)
             val adapterData = enabledAdapters().mapNotNull { adapter ->
                 try {
                     adapter.readSnapshot(isRealTime)
                 } catch (e: Exception) {
                     // Log but continue with other adapters
+                    android.util.Log.w("SynheartWear", "Failed to read from adapter: ${e.message}")
                     null
                 }
             }
+            allMetrics.addAll(adapterData)
 
-            // Normalize and merge data
-            val mergedData = normalizer.mergeSnapshots(adapterData)
+            // Read from WHOOP if connected
+            if (config.enabledAdapters.contains(DeviceAdapter.WHOOP) && 
+                whoopProvider?.isConnected() == true) {
+                try {
+                    // Fetch latest recovery data (most recent record)
+                    val yesterday = java.util.Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000)
+                    val now = java.util.Date()
+                    val recoveryData = whoopProvider!!.fetchRecovery(
+                        startDate = yesterday,
+                        endDate = now,
+                        limit = 1
+                    )
+                    
+                    if (recoveryData.isNotEmpty()) {
+                        allMetrics.add(recoveryData.first())
+                    }
+                } catch (e: Exception) {
+                    // Log but don't fail - continue with other sources
+                    android.util.Log.w("SynheartWear", "Failed to read WHOOP metrics: ${e.message}")
+                }
+            }
+
+            // Merge all metrics from different sources
+            val mergedData = if (allMetrics.isEmpty()) {
+                // No data available from any source
+                WearMetrics.builder()
+                    .timestamp(System.currentTimeMillis())
+                    .deviceId("unknown")
+                    .source("none")
+                    .metaData("error", "No data sources available")
+                    .build()
+            } else if (allMetrics.size == 1) {
+                // Only one source available
+                allMetrics.first()
+            } else {
+                // Multiple sources - merge them
+                normalizer.mergeSnapshots(allMetrics)
+            }
 
             // Validate data quality
             if (!normalizer.validateMetrics(mergedData)) {
@@ -228,6 +306,86 @@ class SynheartWear(
         ensureInitialized()
         localCache.purgeAll()
         consentManager.revokeAllConsents()
+    }
+
+    /**
+     * Get cloud wearable adapter for a specific vendor
+     *
+     * @param vendor Device adapter type (WHOOP, GARMIN, FITBIT)
+     * @return CloudWearableAdapter instance or null if not enabled
+     */
+    fun getCloudAdapter(vendor: DeviceAdapter): CloudWearableAdapter? {
+        ensureInitialized()
+        return adapterRegistry[vendor] as? CloudWearableAdapter
+    }
+
+    /**
+     * Get wearable provider for a specific vendor
+     *
+     * Provides access to vendor-specific provider with dedicated methods
+     * for that vendor (e.g., WhoopProvider for WHOOP)
+     *
+     * @param vendor Device adapter type (e.g., WHOOP)
+     * @return WearableProvider instance or null if not enabled/configured
+     * @throws SynheartWearException if provider is not available
+     */
+    fun getProvider(vendor: DeviceAdapter): WearableProvider {
+        ensureInitialized()
+        
+        return when (vendor) {
+            DeviceAdapter.WHOOP -> whoopProvider
+                ?: throw SynheartWearException("WHOOP provider not configured. Please provide cloudConfig in SynheartWearConfig.")
+            DeviceAdapter.GARMIN, DeviceAdapter.FITBIT -> 
+                throw SynheartWearException("Provider for $vendor not yet implemented.")
+            else -> 
+                throw SynheartWearException("Provider for $vendor not available.")
+        }
+    }
+
+    /**
+     * Check if a cloud wearable is enabled and configured
+     *
+     * @param vendor Device adapter type (WHOOP, GARMIN, FITBIT)
+     * @return True if cloud adapter is enabled and configured
+     */
+    fun isCloudAdapterEnabled(vendor: DeviceAdapter): Boolean {
+        return vendor in config.enabledAdapters && config.cloudConfig != null
+    }
+    
+    /**
+     * Read metrics from a specific provider without merging
+     *
+     * Useful for provider-specific data or historical queries
+     *
+     * @param vendor Device adapter type (e.g., WHOOP)
+     * @param startDate Start date for data query (optional)
+     * @param endDate End date for data query (optional)
+     * @param limit Maximum number of records (optional)
+     * @return List of WearMetrics from the specified provider
+     */
+    suspend fun readMetricsFromProvider(
+        vendor: DeviceAdapter,
+        startDate: java.util.Date? = null,
+        endDate: java.util.Date? = null,
+        limit: Int? = null
+    ): List<WearMetrics> {
+        ensureInitialized()
+        
+        return when (vendor) {
+            DeviceAdapter.WHOOP -> {
+                val provider = whoopProvider
+                    ?: throw SynheartWearException("WHOOP provider not configured")
+                if (!provider.isConnected()) {
+                    throw SynheartWearException("Not connected to WHOOP. Call getProvider(WHOOP).connect() first.")
+                }
+                provider.fetchRecovery(startDate, endDate, limit)
+            }
+            DeviceAdapter.HEALTH_CONNECT -> {
+                // For Health Connect, return current metrics
+                listOf(readMetrics())
+            }
+            else -> throw SynheartWearException("Provider for $vendor not yet implemented.")
+        }
     }
 
     // Private helper methods

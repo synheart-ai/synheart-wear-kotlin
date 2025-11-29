@@ -143,9 +143,9 @@ class HealthConnectAdapter(
                 // Note: This requires suspending, but interface is sync
                 // In practice, apps should check permissions before calling this
                 mapOf(
-                    PermissionType.HEART_RATE to true,
-                    PermissionType.HRV to true,
-                    PermissionType.STEPS to true,
+            PermissionType.HEART_RATE to true,
+            PermissionType.HRV to true,
+            PermissionType.STEPS to true,
                     PermissionType.CALORIES to true,
                     PermissionType.DISTANCE to true,
                     PermissionType.EXERCISE to true,
@@ -287,7 +287,7 @@ class HealthConnectAdapter(
         
         val total = response[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inCalories ?: 0.0
         val active = response[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inCalories ?: 0.0
-        
+
         // Return total if available, otherwise active
         return if (total > 0) total else active
     }

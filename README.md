@@ -208,6 +208,432 @@ lifecycleScope.launch {
 }
 ```
 
+## 🏥 Health Connect Integration
+
+The SDK provides comprehensive integration with Google's Health Connect, allowing you to read biometric data from any wearable device that syncs to Health Connect (Apple Watch, Fitbit, Garmin, Samsung Watch, etc.).
+
+### Overview
+
+Health Connect is Android's unified platform for health and fitness data. It aggregates data from multiple wearable apps and devices, providing a single API to access all biometric data with user consent.
+
+**Benefits:**
+- ✅ Access data from multiple wearable devices simultaneously
+- ✅ User-controlled permissions with granular access
+- ✅ Unified data format across all devices
+- ✅ Automatic data synchronization
+- ✅ Privacy-first design with user consent
+
+### Quick Start with Health Connect
+
+#### 1. Check Health Connect Availability
+
+```kotlin
+import ai.synheart.wear.adapters.HealthConnectAdapter
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Check if Health Connect is available
+        val status = HealthConnectAdapter.getSdkStatus(this)
+        when (status) {
+            HealthConnectClient.SDK_AVAILABLE -> {
+                Log.d(TAG, "Health Connect is available!")
+            }
+            HealthConnectClient.SDK_UNAVAILABLE -> {
+                Log.w(TAG, "Health Connect not installed")
+                // Direct user to install Health Connect from Play Store
+            }
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
+                Log.w(TAG, "Health Connect update required")
+                // Direct user to update Health Connect
+            }
+        }
+    }
+}
+```
+
+#### 2. Request Permissions
+
+Health Connect requires explicit user consent for each data type. Use the Activity Result API to request permissions:
+
+```kotlin
+import ai.synheart.wear.adapters.HealthConnectAdapter
+import ai.synheart.wear.models.PermissionType
+import androidx.activity.result.contract.ActivityResultContracts
+
+class MainActivity : ComponentActivity() {
+    private lateinit var healthConnectAdapter: HealthConnectAdapter
+    
+    // Register the permission request launcher
+    private val requestPermissionLauncher = registerForActivityResult(
+        healthConnectAdapter.getPermissionRequestContract()
+    ) { granted ->
+        if (granted.containsAll(permissions)) {
+            Log.d(TAG, "All permissions granted!")
+            lifecycleScope.launch {
+                readHealthData()
+            }
+        } else {
+            Log.w(TAG, "Some permissions were denied")
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        lifecycleScope.launch {
+            healthConnectAdapter = HealthConnectAdapter(this@MainActivity)
+            healthConnectAdapter.initialize()
+            
+            // Define required permissions
+            val permissions = healthConnectAdapter.getHealthConnectPermissions(
+                setOf(
+                    PermissionType.HEART_RATE,
+                    PermissionType.HRV,
+                    PermissionType.STEPS,
+                    PermissionType.CALORIES,
+                    PermissionType.DISTANCE,
+                    PermissionType.EXERCISE,
+                    PermissionType.SLEEP
+                )
+            )
+            
+            // Check if permissions are already granted
+            if (!healthConnectAdapter.hasAllPermissions(permissions)) {
+                // Request permissions
+                requestPermissionLauncher.launch(permissions)
+            } else {
+                // Permissions already granted
+                readHealthData()
+            }
+        }
+    }
+}
+```
+
+#### 3. Read Health Data
+
+Once permissions are granted, you can read various types of health data:
+
+```kotlin
+import ai.synheart.wear.adapters.HealthConnectManager
+import androidx.health.connect.client.time.TimeRangeFilter
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
+class HealthDataRepository(context: Context) {
+    private val healthConnectManager = HealthConnectManager(context)
+    
+    // Read heart rate data
+    suspend fun getHeartRateData(): HeartRateData? {
+        val now = Instant.now()
+        val start = now.minus(1, ChronoUnit.HOURS)
+        
+        val records = healthConnectManager.readHeartRate(start, now)
+        val avgHR = healthConnectManager.readAverageHeartRate(start, now)
+        val hrRange = healthConnectManager.readHeartRateRange(start, now)
+        
+        return HeartRateData(
+            records = records,
+            average = avgHR,
+            min = hrRange.min,
+            max = hrRange.max
+        )
+    }
+    
+    // Read HRV data
+    suspend fun getHRVData(): Double? {
+        val now = Instant.now()
+        val start = now.minus(24, ChronoUnit.HOURS)
+        
+        return healthConnectManager.readAverageHRV(start, now)
+    }
+    
+    // Read daily steps
+    suspend fun getTodaySteps(): Long {
+        val timeRange = healthConnectManager.getTimeRangeToday()
+        return healthConnectManager.readStepsTotal(
+            timeRange.startTime ?: Instant.now(),
+            timeRange.endTime ?: Instant.now()
+        )
+    }
+    
+    // Read calories burned
+    suspend fun getTodayCalories(): Double {
+        val now = Instant.now()
+        val startOfDay = now.truncatedTo(ChronoUnit.DAYS)
+        
+        return healthConnectManager.readCaloriesTotal(startOfDay, now)
+    }
+    
+    // Read exercise sessions
+    suspend fun getRecentExercises(): List<ExerciseSessionRecord> {
+        val now = Instant.now()
+        val lastWeek = now.minus(7, ChronoUnit.DAYS)
+        
+        return healthConnectManager.readExerciseSessions(lastWeek, now)
+    }
+    
+    // Read sleep data
+    suspend fun getRecentSleep(): List<SleepSessionRecord> {
+        val now = Instant.now()
+        val lastWeek = now.minus(7, ChronoUnit.DAYS)
+        
+        return healthConnectManager.readSleepSessions(lastWeek, now)
+    }
+}
+```
+
+### Available Data Types
+
+The SDK supports reading the following Health Connect data types:
+
+| Data Type | Permission | Description |
+|-----------|-----------|-------------|
+| **Heart Rate** | `READ_HEART_RATE` | Real-time heart rate measurements |
+| **HRV** | `READ_HEART_RATE_VARIABILITY` | Heart rate variability (RMSSD) |
+| **Resting HR** | `READ_RESTING_HEART_RATE` | Resting heart rate measurements |
+| **Steps** | `READ_STEPS` | Step count data |
+| **Calories** | `READ_TOTAL_CALORIES_BURNED` | Total and active calories burned |
+| **Distance** | `READ_DISTANCE` | Distance traveled |
+| **Exercise** | `READ_EXERCISE` | Exercise sessions with details |
+| **Sleep** | `READ_SLEEP` | Sleep sessions with stages |
+| **SpO2** | `READ_OXYGEN_SATURATION` | Blood oxygen saturation |
+| **Respiratory Rate** | `READ_RESPIRATORY_RATE` | Breathing rate |
+| **Body Temperature** | `READ_BODY_TEMPERATURE` | Body temperature readings |
+| **Weight** | `READ_WEIGHT` | Weight measurements |
+| **Height** | `READ_HEIGHT` | Height measurements |
+| **Body Fat** | `READ_BODY_FAT` | Body fat percentage |
+
+### Aggregation Queries
+
+Health Connect supports aggregation for efficient data queries:
+
+```kotlin
+import ai.synheart.wear.adapters.HealthConnectManager
+
+class HealthStatsViewModel(context: Context) {
+    private val manager = HealthConnectManager(context)
+    
+    suspend fun getWeeklyStats(): WeeklyStats {
+        val now = Instant.now()
+        val weekAgo = now.minus(7, ChronoUnit.DAYS)
+        
+        return WeeklyStats(
+            totalSteps = manager.readStepsTotal(weekAgo, now),
+            totalCalories = manager.readCaloriesTotal(weekAgo, now),
+            totalDistance = manager.readDistanceTotal(weekAgo, now),
+            avgHeartRate = manager.readAverageHeartRate(weekAgo, now),
+            avgHRV = manager.readAverageHRV(weekAgo, now),
+            totalSleepHours = (manager.readSleepDuration(weekAgo, now) ?: 0L) / (1000 * 60 * 60)
+        )
+    }
+    
+    data class WeeklyStats(
+        val totalSteps: Long,
+        val totalCalories: Double,
+        val totalDistance: Double,
+        val avgHeartRate: Double?,
+        val avgHRV: Double?,
+        val totalSleepHours: Long
+    )
+}
+```
+
+### Real-Time Data Monitoring
+
+Monitor health data in real-time using Kotlin Flow:
+
+```kotlin
+import kotlinx.coroutines.flow.*
+
+class HealthMonitor(context: Context) {
+    private val synheartWear = SynheartWear(
+        context = context,
+        config = SynheartWearConfig(
+            enabledAdapters = setOf(DeviceAdapter.HEALTH_CONNECT),
+            streamInterval = 5000L // 5 seconds
+        )
+    )
+    
+    // Stream heart rate data
+    fun monitorHeartRate(): Flow<Double?> = 
+        synheartWear.streamHR(intervalMs = 5000L)
+            .map { it.getMetric(MetricType.HR) }
+    
+    // Stream HRV data
+    fun monitorHRV(): Flow<Double?> = 
+        synheartWear.streamHRV(windowMs = 10000L)
+            .map { it.getMetric(MetricType.HRV_RMSSD) }
+    
+    // Combined monitoring
+    fun monitorVitals(): Flow<VitalsData> = 
+        synheartWear.streamHR(intervalMs = 3000L)
+            .map { metrics ->
+                VitalsData(
+                    heartRate = metrics.getMetric(MetricType.HR),
+                    hrv = metrics.getMetric(MetricType.HRV_RMSSD),
+                    steps = metrics.getMetric(MetricType.STEPS)?.toLong(),
+                    timestamp = Instant.ofEpochMilli(metrics.timestamp)
+                )
+            }
+    
+    data class VitalsData(
+        val heartRate: Double?,
+        val hrv: Double?,
+        val steps: Long?,
+        val timestamp: Instant
+    )
+}
+```
+
+### Differential Changes API
+
+Efficiently sync only new or changed data using the Changes API:
+
+```kotlin
+import ai.synheart.wear.adapters.HealthConnectManager
+import androidx.health.connect.client.records.*
+
+class HealthDataSync(context: Context) {
+    private val manager = HealthConnectManager(context)
+    private var changesToken: String? = null
+    
+    suspend fun syncChanges() {
+        // Get initial token if we don't have one
+        if (changesToken == null) {
+            changesToken = manager.getChangesToken(
+                setOf(
+                    HeartRateRecord::class,
+                    StepsRecord::class,
+                    SleepSessionRecord::class
+                )
+            )
+        }
+        
+        // Get changes since last sync
+        manager.getChanges(changesToken!!).collect { message ->
+            when (message) {
+                is HealthConnectManager.ChangesMessage.ChangeList -> {
+                    message.changes.forEach { change ->
+                        when (change) {
+                            is UpsertionChange -> {
+                                // Handle new or updated record
+                                Log.d(TAG, "New/Updated record: ${change.record}")
+                            }
+                            is DeletionChange -> {
+                                // Handle deleted record
+                                Log.d(TAG, "Deleted record: ${change.recordId}")
+                            }
+                        }
+                    }
+                }
+                is HealthConnectManager.ChangesMessage.NoMoreChanges -> {
+                    // Save token for next sync
+                    changesToken = message.nextChangesToken
+                    Log.d(TAG, "Sync complete. Next token: $changesToken")
+                }
+            }
+        }
+    }
+}
+```
+
+### User Interface Integration
+
+Display Health Connect data in Jetpack Compose:
+
+```kotlin
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+
+@Composable
+fun HealthDashboard(viewModel: HealthViewModel) {
+    val heartRate by viewModel.heartRate.collectAsState()
+    val steps by viewModel.steps.collectAsState()
+    val calories by viewModel.calories.collectAsState()
+    
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Health Data", style = MaterialTheme.typography.headlineMedium)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HealthMetricCard(
+            title = "Heart Rate",
+            value = heartRate?.let { "%.0f bpm".format(it) } ?: "—",
+            icon = Icons.Default.Favorite
+        )
+        
+        HealthMetricCard(
+            title = "Steps",
+            value = steps?.let { "%,d".format(it) } ?: "—",
+            icon = Icons.Default.DirectionsWalk
+        )
+        
+        HealthMetricCard(
+            title = "Calories",
+            value = calories?.let { "%.0f cal".format(it) } ?: "—",
+            icon = Icons.Default.LocalFireDepartment
+        )
+    }
+}
+
+@Composable
+fun HealthMetricCard(title: String, value: String, icon: ImageVector) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = title)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+            }
+            Text(value, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+```
+
+### Best Practices
+
+1. **Check Availability First**: Always check if Health Connect is available before making API calls
+2. **Request Minimal Permissions**: Only request permissions you actually need
+3. **Handle Permission Denials**: Gracefully handle cases where users deny permissions
+4. **Use Aggregation**: Use aggregation queries for better performance when you don't need individual records
+5. **Implement Caching**: Cache data locally to reduce API calls and improve performance
+6. **Monitor Battery Usage**: Be mindful of streaming intervals to avoid excessive battery drain
+7. **Handle Errors**: Health Connect may be unavailable or return errors - always handle exceptions
+8. **Respect Privacy**: Never log sensitive health data, follow HIPAA/GDPR guidelines
+
+### Troubleshooting
+
+**Health Connect not available:**
+```kotlin
+if (!HealthConnectAdapter.isAvailable(context)) {
+    // Direct user to install Health Connect
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
+    }
+    startActivity(intent)
+}
+```
+
+**No data available:**
+- Ensure the user has a wearable device connected
+- Check that the wearable app syncs to Health Connect
+- Verify permissions are granted
+- Try a wider time range
+
+**Permission errors:**
+- Re-request permissions using the Activity Result API
+- Check that all required permissions are declared in AndroidManifest.xml
+
 ## ☁️ Cloud Wearables Integration
 
 The SDK supports direct integration with cloud-based wearables (WHOOP, Garmin, Fitbit) through the Synheart Wear Service backend.

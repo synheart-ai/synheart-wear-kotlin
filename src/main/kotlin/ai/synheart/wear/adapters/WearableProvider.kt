@@ -2,6 +2,7 @@ package ai.synheart.wear.adapters
 
 import ai.synheart.wear.models.DeviceAdapter
 import ai.synheart.wear.models.WearMetrics
+import kotlinx.serialization.InternalSerializationApi
 import java.util.*
 
 /**
@@ -10,6 +11,7 @@ import java.util.*
  * All wearable providers (WHOOP, Garmin, Fitbit, etc.) must implement this interface
  * to ensure consistent interface across different vendors.
  */
+@OptIn(InternalSerializationApi::class)
 interface WearableProvider {
     /**
      * The vendor/device type this provider supports

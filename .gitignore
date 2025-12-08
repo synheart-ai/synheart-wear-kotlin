@@ -126,3 +126,4 @@ hs_err_pid*
 # docs folder from backend
 docs/
 synheart-wear-swift-main
+swagger.json

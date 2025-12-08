@@ -13,6 +13,7 @@ import ai.synheart.wear.models.WearMetricsBuilder
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.InternalSerializationApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit
  *
  * Based on wear-service-flow.md documentation.
  */
+@OptIn(InternalSerializationApi::class)
 class GarminProvider(
     private val context: Context,
     private val cloudConfig: CloudConfig,

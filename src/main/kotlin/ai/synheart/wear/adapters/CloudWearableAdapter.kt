@@ -9,6 +9,7 @@ import ai.synheart.wear.models.*
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.InternalSerializationApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit
  * @param vendor Vendor type (WHOOP, GARMIN, FITBIT)
  * @param cloudConfig Cloud configuration with base URL and app ID
  */
+@OptIn(InternalSerializationApi::class)
 class CloudWearableAdapter(
     private val context: Context,
     private val vendor: DeviceAdapter,

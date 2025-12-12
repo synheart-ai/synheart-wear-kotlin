@@ -127,3 +127,10 @@ hs_err_pid*
 docs/
 synheart-wear-swift-main
 swagger.json
+
+# Ignore all markdown files
+*.md
+
+# But keep README.md and readme.md
+!README.md
+!readme.md

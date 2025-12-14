@@ -4,6 +4,7 @@ import android.content.Context
 import ai.synheart.wear.models.WearMetrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.InternalSerializationApi
 import java.io.File
 
 /**
@@ -12,6 +13,7 @@ import java.io.File
  * @param context Android application context
  * @param enableEncryption Whether to encrypt cached data
  */
+@OptIn(InternalSerializationApi::class)
 class LocalCache(
     private val context: Context,
     private val enableEncryption: Boolean

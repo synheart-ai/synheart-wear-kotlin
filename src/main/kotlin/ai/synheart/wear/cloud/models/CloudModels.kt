@@ -162,3 +162,85 @@ data class IntegrationResponse(
     val updatedAt: String
 )
 
+// ============= Garmin-Specific Models =============
+
+/**
+ * Generic Garmin data envelope
+ * Used for all 12 Garmin summary types
+ */
+data class GarminDataEnvelope(
+    @SerializedName("vendor")
+    val vendor: String,
+    @SerializedName("app_id")
+    val appId: String,
+    @SerializedName("user_id")
+    val userId: String,
+    @SerializedName("summary_type")
+    val summaryType: String,
+    @SerializedName("records")
+    val records: List<Map<String, Any>>,
+    @SerializedName("cursor")
+    val cursor: String? = null
+)
+
+/**
+ * Garmin backfill request
+ * Used to request historical data (max 90 days per request)
+ */
+data class GarminBackfillRequest(
+    @SerializedName("app_id")
+    val appId: String,
+    @SerializedName("start")
+    val start: String,  // RFC3339 format
+    @SerializedName("end")
+    val end: String     // RFC3339 format
+)
+
+/**
+ * Garmin backfill response
+ */
+data class GarminBackfillResponse(
+    @SerializedName("status")
+    val status: String,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("user_id")
+    val userId: String,
+    @SerializedName("summary_type")
+    val summaryType: String,
+    @SerializedName("start")
+    val start: String,
+    @SerializedName("end")
+    val end: String
+)
+
+/**
+ * Garmin webhook URLs response
+ * Contains URLs for all 12 summary types plus deregistration
+ */
+data class GarminWebhookURLsResponse(
+    @SerializedName("app_id")
+    val appId: String,
+    @SerializedName("base_url")
+    val baseUrl: String,
+    @SerializedName("endpoints")
+    val endpoints: Map<String, String>,
+    @SerializedName("instructions")
+    val instructions: String? = null
+)
+
+/**
+ * Garmin user permissions response
+ */
+data class GarminUserPermissionsResponse(
+    val permissions: List<String>
+)
+
+/**
+ * Garmin user ID response
+ */
+data class GarminUserIdResponse(
+    @SerializedName("user_id")
+    val userId: String
+)
+

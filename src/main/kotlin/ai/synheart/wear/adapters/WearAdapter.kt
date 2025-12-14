@@ -2,6 +2,7 @@ package ai.synheart.wear.adapters
 
 import ai.synheart.wear.models.PermissionType
 import ai.synheart.wear.models.WearMetrics
+import kotlinx.serialization.InternalSerializationApi
 
 /**
  * Interface for wearable device adapters
@@ -9,6 +10,7 @@ import ai.synheart.wear.models.WearMetrics
  * Implementations provide device-specific data access while conforming
  * to the unified WearMetrics output format.
  */
+@OptIn(InternalSerializationApi::class)
 interface WearAdapter {
     /**
      * Unique identifier for this adapter

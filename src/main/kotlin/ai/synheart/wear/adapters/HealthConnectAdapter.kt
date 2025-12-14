@@ -11,6 +11,7 @@ import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import kotlinx.serialization.InternalSerializationApi
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -24,6 +25,7 @@ import java.time.temporal.ChronoUnit
  *
  * @param context Android application context
  */
+@OptIn(InternalSerializationApi::class)
 class HealthConnectAdapter(
     private val context: Context
 ) : WearAdapter {

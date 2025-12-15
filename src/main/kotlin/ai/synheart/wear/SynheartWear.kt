@@ -7,12 +7,14 @@ import ai.synheart.wear.adapters.HealthConnectAdapter
 import ai.synheart.wear.adapters.CloudWearableAdapter
 import ai.synheart.wear.adapters.WearAdapter
 import ai.synheart.wear.adapters.WhoopProvider
+import ai.synheart.wear.adapters.GarminProvider
 import ai.synheart.wear.adapters.WearableProvider
 import ai.synheart.wear.cache.LocalCache
 import ai.synheart.wear.consent.ConsentManager
 import ai.synheart.wear.normalization.Normalizer
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
+import kotlinx.serialization.InternalSerializationApi
 
 /**
  * Main SynheartWear SDK class implementing RFC specifications
@@ -23,6 +25,7 @@ import kotlinx.coroutines.delay
  * @param context Android application context
  * @param config SDK configuration
  */
+@OptIn(InternalSerializationApi::class)
 class SynheartWear(
     private val context: Context,
     private val config: SynheartWearConfig = SynheartWearConfig()
@@ -34,6 +37,7 @@ class SynheartWear(
 
     // Wearable providers for cloud integrations
     private var whoopProvider: WhoopProvider? = null
+    private var garminProvider: GarminProvider? = null
 
     private val adapterRegistry: Map<DeviceAdapter, WearAdapter> by lazy {
         val adapters = mutableMapOf<DeviceAdapter, WearAdapter>(
@@ -51,7 +55,9 @@ class SynheartWear(
                     cloudConfig = cloudConfig
                 )
             }
+            // Initialize Garmin provider if enabled
             if (DeviceAdapter.GARMIN in config.enabledAdapters) {
+                garminProvider = GarminProvider(context, cloudConfig)
                 adapters[DeviceAdapter.GARMIN] = CloudWearableAdapter(
                     context = context,
                     vendor = DeviceAdapter.GARMIN,
@@ -144,6 +150,7 @@ class SynheartWear(
      * @return Unified WearMetrics containing all available biometric data
      * @throws SynheartWearException if metrics cannot be read
      */
+    @OptIn(InternalSerializationApi::class)
     suspend fun readMetrics(isRealTime: Boolean = false): WearMetrics {
         ensureInitialized()
 
@@ -335,7 +342,9 @@ class SynheartWear(
         return when (vendor) {
             DeviceAdapter.WHOOP -> whoopProvider
                 ?: throw SynheartWearException("WHOOP provider not configured. Please provide cloudConfig in SynheartWearConfig.")
-            DeviceAdapter.GARMIN, DeviceAdapter.FITBIT -> 
+            DeviceAdapter.GARMIN -> garminProvider
+                ?: throw SynheartWearException("Garmin provider not configured. Please provide cloudConfig in SynheartWearConfig.")
+            DeviceAdapter.FITBIT -> 
                 throw SynheartWearException("Provider for $vendor not yet implemented.")
             else -> 
                 throw SynheartWearException("Provider for $vendor not available.")

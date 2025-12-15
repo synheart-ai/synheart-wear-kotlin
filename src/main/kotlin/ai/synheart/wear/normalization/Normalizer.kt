@@ -2,12 +2,14 @@ package ai.synheart.wear.normalization
 
 import ai.synheart.wear.models.MetricType
 import ai.synheart.wear.models.WearMetrics
+import kotlinx.serialization.InternalSerializationApi
 
 /**
  * Normalizes biometric data from multiple sources into unified format
  *
  * Implements the Synheart Data Schema v1.0 normalization rules.
  */
+@OptIn(InternalSerializationApi::class)
 class Normalizer {
 
     /**

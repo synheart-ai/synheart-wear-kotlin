@@ -64,6 +64,58 @@ dependencies {
 - **Health Connect**: Required for biometric data access (must be installed on device)
 - **Gradle**: 7.0+ (for Kotlin DSL support)
 
+## 🧬 Flux Installation (Native)
+
+Flux is an **optional native (Rust) library** used by this SDK to produce **HSI outputs** via JNI (see `ai.synheart.wear.flux.*`). If Flux isn’t present at runtime, the SDK **gracefully degrades** (Flux APIs return `null` / `isAvailable=false`) and the rest of the SDK still works.
+
+### When you need to do anything
+
+- **Using the SDK via JitPack**: nothing to do (Flux is bundled in the published artifact).
+- **Building / publishing this repo from source**: you must ensure the Flux `.so` binaries exist under `vendor/flux/android/jniLibs/`.
+
+### Pinned Flux version
+
+The Flux version used by this repo is pinned in `vendor/flux/VERSION` (currently `v0.1.0`).
+
+### Manual install (dev machines)
+
+1. Download `synheart-flux-android-jniLibs.tar.gz` from the Flux releases matching `vendor/flux/VERSION`:
+   - [synheart-flux releases](https://github.com/synheart-ai/synheart-flux/releases)
+2. Extract into this repo:
+
+```bash
+tar -xzf synheart-flux-android-jniLibs.tar.gz -C vendor/flux/android/jniLibs/
+```
+
+After extraction you should have:
+
+- `vendor/flux/android/jniLibs/arm64-v8a/libsynheart_flux.so`
+- `vendor/flux/android/jniLibs/armeabi-v7a/libsynheart_flux.so`
+- `vendor/flux/android/jniLibs/x86_64/libsynheart_flux.so`
+
+### CI/CD (recommended)
+
+CI should fetch Flux artifacts based on `vendor/flux/VERSION` right before building/publishing:
+
+```bash
+FLUX_VERSION=$(cat vendor/flux/VERSION)
+FLUX_BASE_URL="https://github.com/synheart-ai/synheart-flux/releases/download/${FLUX_VERSION}"
+
+curl -L "${FLUX_BASE_URL}/synheart-flux-android-jniLibs.tar.gz" -o /tmp/flux-android.tar.gz
+tar -xzf /tmp/flux-android.tar.gz -C vendor/flux/android/jniLibs/
+```
+
+### Runtime verification / troubleshooting
+
+- Check availability: `SynheartWear.isFluxNativeAvailable()` (or `ai.synheart.wear.flux.FluxFfi.isAvailable`)
+- If it fails to load: `ai.synheart.wear.flux.FluxFfi.getLoadError()`
+
+### Enabling Flux in the SDK
+
+Flux is opt-in. Enable it via `SynheartWearConfig(enableFlux = true)` and then call `readFluxSnapshot(...)` / `readFluxSnapshots(...)`.
+
+For more details (including artifact names and directory structure), see `vendor/flux/README.md`.
+
 ## 🎯 Quick Start
 
 ### 1. Initialize the SDK

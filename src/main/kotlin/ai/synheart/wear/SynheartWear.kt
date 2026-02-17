@@ -9,6 +9,8 @@ import ai.synheart.wear.adapters.WearAdapter
 import ai.synheart.wear.adapters.WhoopProvider
 import ai.synheart.wear.adapters.GarminProvider
 import ai.synheart.wear.adapters.WearableProvider
+import ai.synheart.wear.adapters.BleHrmProvider
+import ai.synheart.wear.adapters.GarminHealth
 import ai.synheart.wear.cache.LocalCache
 import ai.synheart.wear.consent.ConsentManager
 import ai.synheart.wear.normalization.Normalizer
@@ -38,6 +40,35 @@ class SynheartWear(
     // Wearable providers for cloud integrations
     private var whoopProvider: WhoopProvider? = null
     private var garminProvider: GarminProvider? = null
+
+    // BLE HRM provider
+    private var _bleHrmProvider: BleHrmProvider? = null
+
+    // Garmin Health SDK provider (native device integration)
+    private var _garminHealth: GarminHealth? = null
+
+    /** BLE Heart Rate Monitor provider for direct BLE sensor access */
+    val bleHrm: BleHrmProvider? get() = _bleHrmProvider
+
+    /**
+     * Garmin Health SDK provider for native device integration (scan, pair, stream)
+     *
+     * Available when a [GarminHealth] instance is provided via [setGarminHealth].
+     * The Garmin Health SDK real-time streaming (RTS) capability requires a
+     * separate license from Garmin. This facade is available on demand for
+     * licensed integrations. The underlying native SDK code is proprietary
+     * to Garmin and is not distributed as open source.
+     */
+    val garminHealth: GarminHealth? get() = _garminHealth
+
+    /**
+     * Set the Garmin Health SDK provider for native device integration
+     *
+     * @param garminHealth A configured GarminHealth instance with a valid Garmin SDK license key
+     */
+    fun setGarminHealth(garminHealth: GarminHealth) {
+        _garminHealth = garminHealth
+    }
 
     private val adapterRegistry: Map<DeviceAdapter, WearAdapter> by lazy {
         val adapters = mutableMapOf<DeviceAdapter, WearAdapter>(
@@ -71,6 +102,11 @@ class SynheartWear(
                     cloudConfig = cloudConfig
                 )
             }
+        }
+
+        // Initialize BLE HRM provider if enabled
+        if (DeviceAdapter.BLE_HRM in config.enabledAdapters) {
+            _bleHrmProvider = BleHrmProvider(context)
         }
 
         adapters.toMap()
@@ -191,6 +227,15 @@ class SynheartWear(
                 } catch (e: Exception) {
                     // Log but don't fail - continue with other sources
                     android.util.Log.w("SynheartWear", "Failed to read WHOOP metrics: ${e.message}")
+                }
+            }
+
+            // Include BLE HRM last sample if connected
+            _bleHrmProvider?.let { bleProvider ->
+                if (bleProvider.isConnected()) {
+                    bleProvider.lastSample?.let { sample ->
+                        allMetrics.add(sample.toWearMetrics())
+                    }
                 }
             }
 

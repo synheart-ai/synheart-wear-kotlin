@@ -1,6 +1,6 @@
 # Synheart Wear - Android SDK
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Android API 21+](https://img.shields.io/badge/API-21%2B-brightgreen.svg)](https://android-arsenal.com/api?level=21)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.8%2B-blue.svg)](https://kotlinlang.org)
 [![JitPack](https://jitpack.io/v/synheart-ai/synheart-wear-android.svg)](https://jitpack.io/#synheart-ai/synheart-wear-android)
@@ -1002,7 +1002,7 @@ We welcome contributions! See the main repository's [Contributing Guidelines](ht
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/synheart-ai/synheart-wear/blob/main/LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 

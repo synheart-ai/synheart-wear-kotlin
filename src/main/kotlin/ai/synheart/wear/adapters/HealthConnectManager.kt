@@ -24,7 +24,7 @@ import kotlin.reflect.KClass
  *
  * @param context Android application context
  */
-class HealthConnectManager(private val context: Context) {
+internal class HealthConnectManager(private val context: Context) {
     
     private val TAG = "HealthConnectManager"
     private val healthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }

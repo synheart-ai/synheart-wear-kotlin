@@ -12,6 +12,8 @@ import ai.synheart.wear.models.DeviceAdapter
  * @property maxCacheSize Maximum cache size in bytes
  * @property maxCacheAge Maximum age of cached data in milliseconds
  * @property cloudConfig Configuration for cloud wearable integration (required for WHOOP, GARMIN, FITBIT)
+ * @property enableFlux Whether to enable Flux (HSI processing) - requires native library
+ * @property fluxBaselineWindowDays Number of days for Flux baseline calculations (default: 14)
  */
 data class SynheartWearConfig(
     val enabledAdapters: Set<DeviceAdapter> = setOf(DeviceAdapter.HEALTH_CONNECT),
@@ -20,5 +22,7 @@ data class SynheartWearConfig(
     val streamInterval: Long = 3000L,
     val maxCacheSize: Long = 100 * 1024 * 1024, // 100 MB
     val maxCacheAge: Long = 30L * 24 * 60 * 60 * 1000, // 30 days
-    val cloudConfig: CloudConfig? = null
+    val cloudConfig: CloudConfig? = null,
+    val enableFlux: Boolean = false,
+    val fluxBaselineWindowDays: Int = 14
 )

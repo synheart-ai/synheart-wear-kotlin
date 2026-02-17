@@ -15,6 +15,18 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        // Configure native library ABIs for Flux
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+    }
+
+    // Point to vendored Flux native libraries
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("vendor/flux/android/jniLibs")
+        }
     }
 
     buildTypes {

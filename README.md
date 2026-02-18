@@ -50,11 +50,11 @@ allprojects {
 
 ```kotlin
 dependencies {
-    implementation("com.github.synheart-ai:synheart-wear-android:0.2.0")
+    implementation("com.github.synheart-ai:synheart-wear-android:0.3.0")
 }
 ```
 
-> **Note**: Replace `0.2.0` with the latest release version from [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) or use `main-SNAPSHOT` for the latest development version.
+> **Note**: Replace `0.3.0` with the latest release version from [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) or use `main-SNAPSHOT` for the latest development version.
 
 ### Requirements
 

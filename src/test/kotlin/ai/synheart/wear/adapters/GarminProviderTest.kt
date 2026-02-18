@@ -17,8 +17,6 @@ import org.mockito.Mock
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.anyInt
-import org.mockito.kotlin.anyString
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -46,10 +44,10 @@ class GarminProviderTest {
         MockitoAnnotations.openMocks(this)
 
         // Setup SharedPreferences mock
-        whenever(mockContext.getSharedPreferences(anyString(), anyInt())).thenReturn(mockSharedPrefs)
+        whenever(mockContext.getSharedPreferences(any<String>(), any<Int>())).thenReturn(mockSharedPrefs)
         whenever(mockSharedPrefs.edit()).thenReturn(mockSharedPrefsEditor)
-        whenever(mockSharedPrefsEditor.putString(anyString(), anyOrNull())).thenReturn(mockSharedPrefsEditor)
-        whenever(mockSharedPrefsEditor.remove(anyString())).thenReturn(mockSharedPrefsEditor)
+        whenever(mockSharedPrefsEditor.putString(any<String>(), anyOrNull<String>())).thenReturn(mockSharedPrefsEditor)
+        whenever(mockSharedPrefsEditor.remove(any<String>())).thenReturn(mockSharedPrefsEditor)
 
         cloudConfig = CloudConfig(
             appId = "test-app",
@@ -89,7 +87,7 @@ class GarminProviderTest {
             mockApi.getAuthorizationUrl(
                 vendor = eq("garmin"),
                 redirectUri = eq(cloudConfig.redirectUri),
-                state = anyString(),
+                state = any<String>(),
                 appId = eq(cloudConfig.appId),
                 userId = anyOrNull()
             )
@@ -105,9 +103,9 @@ class GarminProviderTest {
         whenever(
             mockApi.getAuthorizationUrl(
                 vendor = eq("garmin"),
-                redirectUri = anyString(),
-                state = anyString(),
-                appId = anyString(),
+                redirectUri = any<String>(),
+                state = any<String>(),
+                appId = any<String>(),
                 userId = anyOrNull()
             )
         ).thenReturn(

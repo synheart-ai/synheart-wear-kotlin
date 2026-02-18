@@ -113,6 +113,7 @@ buildNumber.properties
 
 # Package Files
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
@@ -134,3 +135,6 @@ swagger.json
 # But keep README.md and readme.md
 !README.md
 !readme.md
+
+# Garmin RTS companion (cloned at build time)
+.garmin/

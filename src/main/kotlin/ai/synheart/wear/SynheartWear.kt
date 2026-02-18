@@ -9,13 +9,11 @@ import ai.synheart.wear.adapters.WearAdapter
 import ai.synheart.wear.adapters.WhoopProvider
 import ai.synheart.wear.adapters.GarminProvider
 import ai.synheart.wear.adapters.WearableProvider
+import ai.synheart.wear.adapters.BleHrmProvider
+import ai.synheart.wear.adapters.GarminHealth
 import ai.synheart.wear.cache.LocalCache
 import ai.synheart.wear.consent.ConsentManager
 import ai.synheart.wear.normalization.Normalizer
-import ai.synheart.wear.flux.FluxProcessor
-import ai.synheart.wear.flux.HsiPayload
-import ai.synheart.wear.flux.Vendor
-import ai.synheart.wear.flux.isFluxAvailable
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
 import kotlinx.serialization.InternalSerializationApi
@@ -43,8 +41,34 @@ class SynheartWear(
     private var whoopProvider: WhoopProvider? = null
     private var garminProvider: GarminProvider? = null
 
-    // Flux processor for HSI output (optional)
-    private var fluxProcessor: FluxProcessor? = null
+    // BLE HRM provider
+    private var _bleHrmProvider: BleHrmProvider? = null
+
+    // Garmin Health SDK provider (native device integration)
+    private var _garminHealth: GarminHealth? = null
+
+    /** BLE Heart Rate Monitor provider for direct BLE sensor access */
+    val bleHrm: BleHrmProvider? get() = _bleHrmProvider
+
+    /**
+     * Garmin Health SDK provider for native device integration (scan, pair, stream)
+     *
+     * Available when a [GarminHealth] instance is provided via [setGarminHealth].
+     * The Garmin Health SDK real-time streaming (RTS) capability requires a
+     * separate license from Garmin. This facade is available on demand for
+     * licensed integrations. The underlying native SDK code is proprietary
+     * to Garmin and is not distributed as open source.
+     */
+    val garminHealth: GarminHealth? get() = _garminHealth
+
+    /**
+     * Set the Garmin Health SDK provider for native device integration
+     *
+     * @param garminHealth A configured GarminHealth instance with a valid Garmin SDK license key
+     */
+    fun setGarminHealth(garminHealth: GarminHealth) {
+        _garminHealth = garminHealth
+    }
 
     private val adapterRegistry: Map<DeviceAdapter, WearAdapter> by lazy {
         val adapters = mutableMapOf<DeviceAdapter, WearAdapter>(
@@ -80,6 +104,11 @@ class SynheartWear(
             }
         }
 
+        // Initialize BLE HRM provider if enabled
+        if (DeviceAdapter.BLE_HRM in config.enabledAdapters) {
+            _bleHrmProvider = BleHrmProvider(context)
+        }
+
         adapters.toMap()
     }
 
@@ -101,17 +130,6 @@ class SynheartWear(
             // Initialize adapters
             enabledAdapters().forEach { adapter ->
                 adapter.initialize()
-            }
-
-            // Initialize Flux processor if enabled
-            if (config.enableFlux) {
-                fluxProcessor = FluxProcessor.create(config.fluxBaselineWindowDays)
-                if (!fluxProcessor!!.isAvailable) {
-                    android.util.Log.w(
-                        "SynheartWear",
-                        "Flux enabled but native library not available - running in degraded mode"
-                    )
-                }
             }
 
             initialized = true
@@ -209,6 +227,15 @@ class SynheartWear(
                 } catch (e: Exception) {
                     // Log but don't fail - continue with other sources
                     android.util.Log.w("SynheartWear", "Failed to read WHOOP metrics: ${e.message}")
+                }
+            }
+
+            // Include BLE HRM last sample if connected
+            _bleHrmProvider?.let { bleProvider ->
+                if (bleProvider.isConnected()) {
+                    bleProvider.lastSample?.let { sample ->
+                        allMetrics.add(sample.toWearMetrics())
+                    }
                 }
             }
 
@@ -415,191 +442,6 @@ class SynheartWear(
         }
     }
 
-    // --------------------------------------------------------------------------
-    // Flux Integration (HSI Output)
-    // --------------------------------------------------------------------------
-
-    /**
-     * Check if Flux is enabled and available
-     *
-     * @return true if Flux is enabled in config AND native library is loaded
-     */
-    fun isFluxEnabled(): Boolean {
-        return config.enableFlux && (fluxProcessor?.isAvailable == true)
-    }
-
-    /**
-     * Check if Flux native library is available (static check)
-     *
-     * @return true if native library is loaded, regardless of config
-     */
-    fun isFluxNativeAvailable(): Boolean = isFluxAvailable
-
-    /**
-     * Read wearable data and process through Flux to get HSI output
-     *
-     * @param vendor Wearable vendor (WHOOP, GARMIN)
-     * @param deviceId Unique device identifier
-     * @param timezone User's timezone (e.g., "America/New_York")
-     * @param rawVendorJson Raw vendor API response JSON
-     * @return HsiPayload containing HSI 1.0 compliant output
-     * @throws SynheartWearException if Flux is not enabled or processing fails
-     */
-    fun readFluxSnapshot(
-        vendor: Vendor,
-        deviceId: String,
-        timezone: String,
-        rawVendorJson: String
-    ): HsiPayload {
-        ensureInitialized()
-
-        if (!config.enableFlux) {
-            throw SynheartWearException(
-                "Flux is not enabled. Set enableFlux=true in SynheartWearConfig.",
-                code = "FLUX_DISABLED"
-            )
-        }
-
-        val processor = fluxProcessor
-            ?: throw SynheartWearException(
-                "Flux processor not initialized",
-                code = "FLUX_NOT_INITIALIZED"
-            )
-
-        if (!processor.isAvailable) {
-            throw SynheartWearException(
-                "Flux native library not available",
-                code = "FLUX_NOT_AVAILABLE"
-            )
-        }
-
-        val jsonStrings = when (vendor) {
-            Vendor.WHOOP -> processor.processWhoop(rawVendorJson, timezone, deviceId)
-            Vendor.GARMIN -> processor.processGarmin(rawVendorJson, timezone, deviceId)
-        }
-
-        if (jsonStrings == null || jsonStrings.isEmpty()) {
-            throw SynheartWearException(
-                "Flux processing failed - no output produced",
-                code = "FLUX_PROCESSING_FAILED"
-            )
-        }
-
-        // Return the first (most recent) payload
-        return HsiPayload.fromJson(jsonStrings.first())
-    }
-
-    /**
-     * Read wearable data and process through Flux to get all HSI daily payloads
-     *
-     * @param vendor Wearable vendor (WHOOP, GARMIN)
-     * @param deviceId Unique device identifier
-     * @param timezone User's timezone (e.g., "America/New_York")
-     * @param rawVendorJson Raw vendor API response JSON
-     * @return List of HsiPayload (one per day in the input)
-     * @throws SynheartWearException if Flux is not enabled or processing fails
-     */
-    fun readFluxSnapshots(
-        vendor: Vendor,
-        deviceId: String,
-        timezone: String,
-        rawVendorJson: String
-    ): List<HsiPayload> {
-        ensureInitialized()
-
-        if (!config.enableFlux) {
-            throw SynheartWearException(
-                "Flux is not enabled. Set enableFlux=true in SynheartWearConfig.",
-                code = "FLUX_DISABLED"
-            )
-        }
-
-        val processor = fluxProcessor
-            ?: throw SynheartWearException(
-                "Flux processor not initialized",
-                code = "FLUX_NOT_INITIALIZED"
-            )
-
-        if (!processor.isAvailable) {
-            throw SynheartWearException(
-                "Flux native library not available",
-                code = "FLUX_NOT_AVAILABLE"
-            )
-        }
-
-        val jsonStrings = when (vendor) {
-            Vendor.WHOOP -> processor.processWhoop(rawVendorJson, timezone, deviceId)
-            Vendor.GARMIN -> processor.processGarmin(rawVendorJson, timezone, deviceId)
-        }
-
-        if (jsonStrings == null) {
-            throw SynheartWearException(
-                "Flux processing failed - no output produced",
-                code = "FLUX_PROCESSING_FAILED"
-            )
-        }
-
-        return jsonStrings.map { HsiPayload.fromJson(it) }
-    }
-
-    /**
-     * Save Flux baselines to JSON for persistence
-     *
-     * @return Baselines JSON string or null if Flux is not available
-     * @throws SynheartWearException if Flux is not enabled
-     */
-    fun saveFluxBaselines(): String? {
-        ensureInitialized()
-
-        if (!config.enableFlux) {
-            throw SynheartWearException(
-                "Flux is not enabled. Set enableFlux=true in SynheartWearConfig.",
-                code = "FLUX_DISABLED"
-            )
-        }
-
-        return fluxProcessor?.saveBaselines()
-    }
-
-    /**
-     * Load Flux baselines from previously saved JSON
-     *
-     * @param json Baselines JSON string (from saveFluxBaselines)
-     * @return true if baselines were loaded successfully
-     * @throws SynheartWearException if Flux is not enabled
-     */
-    fun loadFluxBaselines(json: String): Boolean {
-        ensureInitialized()
-
-        if (!config.enableFlux) {
-            throw SynheartWearException(
-                "Flux is not enabled. Set enableFlux=true in SynheartWearConfig.",
-                code = "FLUX_DISABLED"
-            )
-        }
-
-        return fluxProcessor?.loadBaselines(json) ?: false
-    }
-
-    /**
-     * Get current Flux baselines as typed object
-     *
-     * @return Baselines object or null if not available
-     * @throws SynheartWearException if Flux is not enabled
-     */
-    fun getFluxBaselines(): ai.synheart.wear.flux.Baselines? {
-        ensureInitialized()
-
-        if (!config.enableFlux) {
-            throw SynheartWearException(
-                "Flux is not enabled. Set enableFlux=true in SynheartWearConfig.",
-                code = "FLUX_DISABLED"
-            )
-        }
-
-        return fluxProcessor?.currentBaselines
-    }
-
     // Private helper methods
 
     private fun ensureInitialized() {
@@ -625,7 +467,7 @@ class SynheartWear(
 /**
  * Exception thrown by SynheartWear SDK
  *
- * @property code Error code for programmatic handling (e.g., "FLUX_DISABLED")
+ * @property code Error code for programmatic handling
  */
 class SynheartWearException(
     message: String,

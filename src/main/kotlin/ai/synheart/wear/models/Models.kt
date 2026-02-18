@@ -11,7 +11,8 @@ enum class DeviceAdapter {
     SAMSUNG_HEALTH,
     FITBIT,
     GARMIN,
-    WHOOP
+    WHOOP,
+    BLE_HRM
 }
 
 /**

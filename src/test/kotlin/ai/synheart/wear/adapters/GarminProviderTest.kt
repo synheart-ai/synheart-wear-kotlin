@@ -14,11 +14,12 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
-import org.mockito.Mockito.*
-import org.mockito.Mockito.`when` as mockWhen
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import retrofit2.Response
 
 class GarminProviderTest {
@@ -43,10 +44,10 @@ class GarminProviderTest {
         MockitoAnnotations.openMocks(this)
 
         // Setup SharedPreferences mock
-        mockWhen(mockContext.getSharedPreferences(anyString(), anyInt())).thenReturn(mockSharedPrefs)
-        mockWhen(mockSharedPrefs.edit()).thenReturn(mockSharedPrefsEditor)
-        mockWhen(mockSharedPrefsEditor.putString(anyString(), anyString())).thenReturn(mockSharedPrefsEditor)
-        mockWhen(mockSharedPrefsEditor.remove(anyString())).thenReturn(mockSharedPrefsEditor)
+        whenever(mockContext.getSharedPreferences(any<String>(), any<Int>())).thenReturn(mockSharedPrefs)
+        whenever(mockSharedPrefs.edit()).thenReturn(mockSharedPrefsEditor)
+        whenever(mockSharedPrefsEditor.putString(any<String>(), anyOrNull<String>())).thenReturn(mockSharedPrefsEditor)
+        whenever(mockSharedPrefsEditor.remove(any<String>())).thenReturn(mockSharedPrefsEditor)
 
         cloudConfig = CloudConfig(
             appId = "test-app",
@@ -64,7 +65,7 @@ class GarminProviderTest {
 
     @Test
     fun `isConnected should return false when no user ID stored`() {
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn(null)
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn(null)
 
         val newProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         assertFalse(newProvider.isConnected())
@@ -72,7 +73,7 @@ class GarminProviderTest {
 
     @Test
     fun `isConnected should return true when user ID is stored`() {
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user-123")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user-123")
 
         val newProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         assertTrue(newProvider.isConnected())
@@ -82,13 +83,15 @@ class GarminProviderTest {
     fun `connect should return authorization URL`(): Unit = runBlocking {
         val expectedUrl = "https://connect.garmin.com/oauth2Confirm?client_id=xxx"
 
-        mockWhen(mockApi.getAuthorizationUrl(
-            vendor = "garmin",
-            redirectUri = cloudConfig.redirectUri,
-            state = anyString(),
-            appId = cloudConfig.appId,
-            userId = null
-        )).thenReturn(Response.success(OAuthAuthorizeResponse(expectedUrl)))
+        whenever(
+            mockApi.getAuthorizationUrl(
+                vendor = eq("garmin"),
+                redirectUri = eq(cloudConfig.redirectUri),
+                state = any<String>(),
+                appId = eq(cloudConfig.appId),
+                userId = anyOrNull()
+            )
+        ).thenReturn(Response.success(OAuthAuthorizeResponse(expectedUrl)))
 
         val result = provider.connect()
 
@@ -97,16 +100,20 @@ class GarminProviderTest {
 
     @Test
     fun `connect should throw exception on API error`(): Unit = runBlocking {
-        mockWhen(mockApi.getAuthorizationUrl(
-            vendor = eq("garmin"),
-            redirectUri = anyString(),
-            state = anyString(),
-            appId = anyString(),
-            userId = anyOrNull()
-        )).thenReturn(Response.error(
-            500,
-            "Server error".toResponseBody("text/plain".toMediaType())
-        ))
+        whenever(
+            mockApi.getAuthorizationUrl(
+                vendor = eq("garmin"),
+                redirectUri = any<String>(),
+                state = any<String>(),
+                appId = any<String>(),
+                userId = anyOrNull()
+            )
+        ).thenReturn(
+            Response.error(
+                500,
+                "Server error".toResponseBody("text/plain".toMediaType())
+            )
+        )
 
         try {
             provider.connect()
@@ -147,15 +154,17 @@ class GarminProviderTest {
     @Test
     fun `disconnect should clear user ID`(): Unit = runBlocking {
         // Setup connected state
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
 
-        mockWhen(mockApi.disconnect(
-            vendor = "garmin",
-            userId = "test-user",
-            appId = cloudConfig.appId
-        )).thenReturn(Response.success(DisconnectResponse("disconnected")))
+        whenever(
+            mockApi.disconnect(
+                vendor = eq("garmin"),
+                userId = eq("test-user"),
+                appId = eq(cloudConfig.appId)
+            )
+        ).thenReturn(Response.success(DisconnectResponse("disconnected")))
 
         connectedProvider.disconnect()
 
@@ -165,7 +174,7 @@ class GarminProviderTest {
     @Test
     fun `fetchDailies should return metrics when connected`(): Unit = runBlocking {
         // Setup connected state
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val mockEnvelope = GarminDataEnvelope(
             vendor = "garmin",
@@ -184,13 +193,15 @@ class GarminProviderTest {
             cursor = null
         )
 
-        mockWhen(mockApi.getGarminData(
-            userId = "test-user",
-            summaryType = "dailies",
-            appId = cloudConfig.appId,
-            start = null,
-            end = null
-        )).thenReturn(Response.success(mockEnvelope))
+        whenever(
+            mockApi.getGarminData(
+                userId = eq("test-user"),
+                summaryType = eq("dailies"),
+                appId = eq(cloudConfig.appId),
+                start = anyOrNull(),
+                end = anyOrNull()
+            )
+        ).thenReturn(Response.success(mockEnvelope))
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         val result = connectedProvider.fetchDailies()
@@ -201,7 +212,7 @@ class GarminProviderTest {
 
     @Test
     fun `fetchHRV should return HRV metrics`(): Unit = runBlocking {
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val mockEnvelope = GarminDataEnvelope(
             vendor = "garmin",
@@ -219,13 +230,15 @@ class GarminProviderTest {
             cursor = null
         )
 
-        mockWhen(mockApi.getGarminData(
-            userId = "test-user",
-            summaryType = "hrv",
-            appId = cloudConfig.appId,
-            start = null,
-            end = null
-        )).thenReturn(Response.success(mockEnvelope))
+        whenever(
+            mockApi.getGarminData(
+                userId = eq("test-user"),
+                summaryType = eq("hrv"),
+                appId = eq(cloudConfig.appId),
+                start = anyOrNull(),
+                end = anyOrNull()
+            )
+        ).thenReturn(Response.success(mockEnvelope))
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         val result = connectedProvider.fetchHRV()
@@ -236,7 +249,7 @@ class GarminProviderTest {
 
     @Test
     fun `fetchSleeps should return sleep metrics`(): Unit = runBlocking {
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val mockEnvelope = GarminDataEnvelope(
             vendor = "garmin",
@@ -256,13 +269,15 @@ class GarminProviderTest {
             cursor = null
         )
 
-        mockWhen(mockApi.getGarminData(
-            userId = "test-user",
-            summaryType = "sleeps",
-            appId = cloudConfig.appId,
-            start = null,
-            end = null
-        )).thenReturn(Response.success(mockEnvelope))
+        whenever(
+            mockApi.getGarminData(
+                userId = eq("test-user"),
+                summaryType = eq("sleeps"),
+                appId = eq(cloudConfig.appId),
+                start = anyOrNull(),
+                end = anyOrNull()
+            )
+        ).thenReturn(Response.success(mockEnvelope))
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         val result = connectedProvider.fetchSleeps()
@@ -274,7 +289,7 @@ class GarminProviderTest {
 
     @Test
     fun `requestBackfill should return true on success`(): Unit = runBlocking {
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val mockResponse = GarminBackfillResponse(
             status = "accepted",
@@ -285,11 +300,13 @@ class GarminProviderTest {
             end = "2024-03-01T00:00:00Z"
         )
 
-        mockWhen(mockApi.requestGarminBackfill(
-            userId = eq("test-user"),
-            summaryType = eq("dailies"),
-            request = any()
-        )).thenReturn(Response.success(202, mockResponse))
+        whenever(
+            mockApi.requestGarminBackfill(
+                userId = eq("test-user"),
+                summaryType = eq("dailies"),
+                request = any()
+            )
+        ).thenReturn(Response.success(202, mockResponse))
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         val result = connectedProvider.requestBackfill(
@@ -314,10 +331,12 @@ class GarminProviderTest {
             instructions = "Configure these in Garmin Developer Portal"
         )
 
-        mockWhen(mockApi.getGarminWebhookUrls(
-            appId = cloudConfig.appId,
-            baseUrl = null
-        )).thenReturn(Response.success(mockResponse))
+        whenever(
+            mockApi.getGarminWebhookUrls(
+                appId = eq(cloudConfig.appId),
+                baseUrl = anyOrNull()
+            )
+        ).thenReturn(Response.success(mockResponse))
 
         val result = provider.getWebhookUrls()
 
@@ -330,7 +349,7 @@ class GarminProviderTest {
     @Test
     fun `fetchRecovery should return HRV data for Garmin`(): Unit = runBlocking {
         // For Garmin, recovery maps to HRV data
-        mockWhen(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
+        whenever(mockSharedPrefs.getString("user_id", null)).thenReturn("test-user")
 
         val mockEnvelope = GarminDataEnvelope(
             vendor = "garmin",
@@ -346,13 +365,15 @@ class GarminProviderTest {
             cursor = null
         )
 
-        mockWhen(mockApi.getGarminData(
-            userId = "test-user",
-            summaryType = "hrv",
-            appId = cloudConfig.appId,
-            start = null,
-            end = null
-        )).thenReturn(Response.success(mockEnvelope))
+        whenever(
+            mockApi.getGarminData(
+                userId = eq("test-user"),
+                summaryType = eq("hrv"),
+                appId = eq(cloudConfig.appId),
+                start = anyOrNull(),
+                end = anyOrNull()
+            )
+        ).thenReturn(Response.success(mockEnvelope))
 
         val connectedProvider = GarminProvider(mockContext, cloudConfig, mockApi)
         val result = connectedProvider.fetchRecovery()

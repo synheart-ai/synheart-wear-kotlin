@@ -16,17 +16,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
 
-        // Configure native library ABIs for Flux
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
-    }
-
-    // Point to vendored Flux native libraries
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("vendor/flux/android/jniLibs")
-        }
     }
 
     buildTypes {
@@ -96,7 +85,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "ai.synheart"
             artifactId = "synheart-wear"
-            version = "0.2.0"
+            version = "0.3.0"
 
             afterEvaluate {
                 from(components["release"])
@@ -109,8 +98,8 @@ publishing {
 
                 licenses {
                     license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
                     }
                 }
 

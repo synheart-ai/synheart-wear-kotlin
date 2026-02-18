@@ -1,7 +1,9 @@
 package ai.synheart.wear.models
 
 import kotlinx.serialization.Serializable
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 /**
  * Device adapter types
@@ -87,15 +89,16 @@ data class WearMetrics(
      * Convert to JSON-compatible map
      */
     fun toMap(): Map<String, Any> {
+        val iso = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC)
         return mapOf(
-            "timestamp" to Date(timestamp).toString(),
+            "timestamp" to iso.format(Instant.ofEpochMilli(timestamp)),
             "device_id" to deviceId,
             "source" to source,
             "metrics" to metrics,
             "meta" to meta
         ).let { base ->
             if (rrIntervals != null) {
-                base + ("rr_intervals" to rrIntervals)
+                base + ("rr_ms" to rrIntervals)
             } else {
                 base
             }

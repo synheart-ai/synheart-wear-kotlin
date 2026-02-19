@@ -59,7 +59,7 @@ class HealthConnectAdapter(
     /**
      * Get all required Health Connect permissions based on requested permission types
      */
-    fun getHealthConnectPermissions(permissions: Set<PermissionType>): Set<String> {
+    internal fun getHealthConnectPermissions(permissions: Set<PermissionType>): Set<String> {
         return permissions.flatMap { permType ->
             when (permType) {
                 PermissionType.HEART_RATE -> listOf(
@@ -97,7 +97,7 @@ class HealthConnectAdapter(
     /**
      * Get permission request contract for Activity-based permission flow
      */
-    fun getPermissionRequestContract(): ActivityResultContract<Set<String>, Set<String>> {
+    internal fun getPermissionRequestContract(): ActivityResultContract<Set<String>, Set<String>> {
         return PermissionController.createRequestPermissionResultContract()
     }
 
@@ -243,7 +243,7 @@ class HealthConnectAdapter(
     /**
      * Read heart rate records
      */
-    suspend fun readHeartRate(timeRange: TimeRangeFilter): List<HeartRateRecord> {
+    private suspend fun readHeartRate(timeRange: TimeRangeFilter): List<HeartRateRecord> {
         val request = ReadRecordsRequest(
             recordType = HeartRateRecord::class,
             timeRangeFilter = timeRange
@@ -254,7 +254,7 @@ class HealthConnectAdapter(
     /**
      * Read HRV records
      */
-    suspend fun readHRV(timeRange: TimeRangeFilter): List<HeartRateVariabilityRmssdRecord> {
+    private suspend fun readHRV(timeRange: TimeRangeFilter): List<HeartRateVariabilityRmssdRecord> {
         val request = ReadRecordsRequest(
             recordType = HeartRateVariabilityRmssdRecord::class,
             timeRangeFilter = timeRange
@@ -265,7 +265,7 @@ class HealthConnectAdapter(
     /**
      * Read aggregated steps count
      */
-    suspend fun readStepsAggregate(timeRange: TimeRangeFilter): Long {
+    private suspend fun readStepsAggregate(timeRange: TimeRangeFilter): Long {
         val request = AggregateRequest(
             metrics = setOf(StepsRecord.COUNT_TOTAL),
             timeRangeFilter = timeRange
@@ -277,7 +277,7 @@ class HealthConnectAdapter(
     /**
      * Read aggregated calories burned
      */
-    suspend fun readCaloriesAggregate(timeRange: TimeRangeFilter): Double {
+    private suspend fun readCaloriesAggregate(timeRange: TimeRangeFilter): Double {
         val request = AggregateRequest(
             metrics = setOf(
                 TotalCaloriesBurnedRecord.ENERGY_TOTAL,
@@ -297,7 +297,7 @@ class HealthConnectAdapter(
     /**
      * Read aggregated distance
      */
-    suspend fun readDistanceAggregate(timeRange: TimeRangeFilter): Double {
+    private suspend fun readDistanceAggregate(timeRange: TimeRangeFilter): Double {
         val request = AggregateRequest(
             metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
             timeRangeFilter = timeRange
@@ -309,7 +309,7 @@ class HealthConnectAdapter(
     /**
      * Read exercise sessions
      */
-    suspend fun readExerciseSessions(start: Instant, end: Instant): List<ExerciseSessionRecord> {
+    private suspend fun readExerciseSessions(start: Instant, end: Instant): List<ExerciseSessionRecord> {
         val request = ReadRecordsRequest(
             recordType = ExerciseSessionRecord::class,
             timeRangeFilter = TimeRangeFilter.between(start, end)
@@ -320,7 +320,7 @@ class HealthConnectAdapter(
     /**
      * Read sleep sessions
      */
-    suspend fun readSleepSessions(start: Instant, end: Instant): List<SleepSessionRecord> {
+    private suspend fun readSleepSessions(start: Instant, end: Instant): List<SleepSessionRecord> {
         val request = ReadRecordsRequest(
             recordType = SleepSessionRecord::class,
             timeRangeFilter = TimeRangeFilter.between(start, end)
@@ -331,7 +331,7 @@ class HealthConnectAdapter(
     /**
      * Read sleep duration aggregate
      */
-    suspend fun readSleepDuration(start: Instant, end: Instant): Long? {
+    private suspend fun readSleepDuration(start: Instant, end: Instant): Long? {
         val request = AggregateRequest(
             metrics = setOf(SleepSessionRecord.SLEEP_DURATION_TOTAL),
             timeRangeFilter = TimeRangeFilter.between(start, end)

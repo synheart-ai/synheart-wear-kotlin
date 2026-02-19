@@ -119,11 +119,12 @@ class SynheartWearConfigTest {
                 DeviceAdapter.SAMSUNG_HEALTH,
                 DeviceAdapter.FITBIT,
                 DeviceAdapter.GARMIN,
-                DeviceAdapter.WHOOP
+                DeviceAdapter.WHOOP,
+                DeviceAdapter.BLE_HRM
             )
         )
 
-        assertEquals(5, config.enabledAdapters.size)
+        assertEquals(6, config.enabledAdapters.size)
         DeviceAdapter.values().forEach { adapter ->
             assertTrue(config.enabledAdapters.contains(adapter))
         }

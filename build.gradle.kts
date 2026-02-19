@@ -15,6 +15,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
     }
 
     buildTypes {
@@ -84,7 +85,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "ai.synheart"
             artifactId = "synheart-wear"
-            version = "0.2.0"
+            version = "0.3.0"
 
             afterEvaluate {
                 from(components["release"])
@@ -97,8 +98,8 @@ publishing {
 
                 licenses {
                     license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
                     }
                 }
 

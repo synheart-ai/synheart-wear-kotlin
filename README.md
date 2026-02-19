@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Android API 21+](https://img.shields.io/badge/API-21%2B-brightgreen.svg)](https://android-arsenal.com/api?level=21)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.8%2B-blue.svg)](https://kotlinlang.org)
-[![JitPack](https://jitpack.io/v/synheart-ai/synheart-wear-android.svg)](https://jitpack.io/#synheart-ai/synheart-wear-android)
+[![Maven Central](https://img.shields.io/maven-central/v/ai.synheart/synheart-wear.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/ai.synheart/synheart-wear)
 
 **Unified wearable SDK for Android** — Stream biometric data from Apple Watch, Fitbit, Garmin, Whoop, and Samsung devices via Health Connect with a single standardized API.
 
@@ -20,41 +20,21 @@
 
 ## 📦 Installation
 
-### Gradle (Kotlin DSL) - JitPack
+### Gradle (Kotlin DSL) - Maven Central
 
-**Step 1:** Add JitPack repository to your root `settings.gradle.kts`:
-
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-```
-
-Or in your root `build.gradle.kts`:
-
-```kotlin
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-```
-
-**Step 2:** Add the dependency to your app's `build.gradle.kts`:
+Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.synheart-ai:synheart-wear-android:0.3.0")
+    implementation("ai.synheart:synheart-wear:0.3.0")
 }
 ```
 
-> **Note**: Replace `0.3.0` with the latest release version from [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) or use `main-SNAPSHOT` for the latest development version.
+> **Note**: Replace `0.3.0` with the latest release version from Maven Central.
+
+### Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Requirements
 
@@ -64,57 +44,11 @@ dependencies {
 - **Health Connect**: Required for biometric data access (must be installed on device)
 - **Gradle**: 7.0+ (for Kotlin DSL support)
 
-## 🧬 Flux Installation (Native)
+## 🧠 Flux / HSI
 
-Flux is an **optional native (Rust) library** used by this SDK to produce **HSI outputs** via JNI (see `ai.synheart.wear.flux.*`). If Flux isn’t present at runtime, the SDK **gracefully degrades** (Flux APIs return `null` / `isAvailable=false`) and the rest of the SDK still works.
+This SDK is the **input layer**: it collects and normalizes wearable signals (e.g., HR/HRV/steps/sleep).
 
-### When you need to do anything
-
-- **Using the SDK via JitPack**: nothing to do (Flux is bundled in the published artifact).
-- **Building / publishing this repo from source**: you must ensure the Flux `.so` binaries exist under `vendor/flux/android/jniLibs/`.
-
-### Pinned Flux version
-
-The Flux version used by this repo is pinned in `vendor/flux/VERSION` (currently `v0.1.0`).
-
-### Manual install (dev machines)
-
-1. Download `synheart-flux-android-jniLibs.tar.gz` from the Flux releases matching `vendor/flux/VERSION`:
-   - [synheart-flux releases](https://github.com/synheart-ai/synheart-flux/releases)
-2. Extract into this repo:
-
-```bash
-tar -xzf synheart-flux-android-jniLibs.tar.gz -C vendor/flux/android/jniLibs/
-```
-
-After extraction you should have:
-
-- `vendor/flux/android/jniLibs/arm64-v8a/libsynheart_flux.so`
-- `vendor/flux/android/jniLibs/armeabi-v7a/libsynheart_flux.so`
-- `vendor/flux/android/jniLibs/x86_64/libsynheart_flux.so`
-
-### CI/CD (recommended)
-
-CI should fetch Flux artifacts based on `vendor/flux/VERSION` right before building/publishing:
-
-```bash
-FLUX_VERSION=$(cat vendor/flux/VERSION)
-FLUX_BASE_URL="https://github.com/synheart-ai/synheart-flux/releases/download/${FLUX_VERSION}"
-
-curl -L "${FLUX_BASE_URL}/synheart-flux-android-jniLibs.tar.gz" -o /tmp/flux-android.tar.gz
-tar -xzf /tmp/flux-android.tar.gz -C vendor/flux/android/jniLibs/
-```
-
-### Runtime verification / troubleshooting
-
-- Check availability: `SynheartWear.isFluxNativeAvailable()` (or `ai.synheart.wear.flux.FluxFfi.isAvailable`)
-- If it fails to load: `ai.synheart.wear.flux.FluxFfi.getLoadError()`
-
-### Enabling Flux in the SDK
-
-Flux is opt-in. Enable it via `SynheartWearConfig(enableFlux = true)` and then call `readFluxSnapshot(...)` / `readFluxSnapshots(...)`.
-
-For more details (including artifact names and directory structure), see `vendor/flux/README.md`.
+It **does not bundle Flux** and **does not generate HSI** in this repo. HSI generation happens in [`synheart-flux`](https://github.com/synheart-ai/synheart-flux) and is typically orchestrated via Synheart Core.
 
 ## 🎯 Quick Start
 
@@ -965,14 +899,11 @@ gradle wrapper --gradle-version 8.0
 
 ## 🚀 Releasing (for Maintainers)
 
-This project uses [JitPack](https://jitpack.io) for automated builds and releases. When you create a GitHub release, JitPack automatically builds and publishes the library.
+This project publishes to **Maven Central** via **Sonatype Central**. Creating a GitHub Release triggers the `release.yml` workflow, which builds, signs, and uploads the artifacts.
 
 ### Creating a Release
 
-1. **Update version in `build.gradle.kts`**:
-   ```kotlin
-   version = "0.2.0"  // Update this
-   ```
+1. **Update version in `gradle.properties`** (`VERSION_NAME`) and update [`CHANGELOG.md`](CHANGELOG.md).
 
 2. **Commit and push changes**:
    ```bash
@@ -990,16 +921,16 @@ This project uses [JitPack](https://jitpack.io) for automated builds and release
 
 4. **Monitor the build**:
    - Check the [GitHub Actions](https://github.com/synheart-ai/synheart-wear-android/actions) for build status
-   - Check [JitPack](https://jitpack.io/#synheart-ai/synheart-wear-android) for the build log
+   - Verify the artifact appears on Maven Central (may take some time to sync)
 
 ### Release Checklist
 
 - [ ] All tests pass locally (`./gradlew test`)
-- [ ] Version number updated in `build.gradle.kts`
+- [ ] Version number updated in `gradle.properties` (`VERSION_NAME`)
 - [ ] CHANGELOG updated (if applicable)
 - [ ] Documentation updated
 - [ ] GitHub release created with appropriate tag
-- [ ] JitPack build succeeded
+- [ ] Maven Central publish succeeded
 
 ## 🚨 Error Handling
 

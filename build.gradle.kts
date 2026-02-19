@@ -1,9 +1,17 @@
+import org.jetbrains.dokka.gradle.DokkaTask
+
 plugins {
     id("com.android.library") version "8.2.0"
     id("org.jetbrains.kotlin.android") version "1.9.0"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
+    id("org.jetbrains.dokka") version "1.9.20"
     id("maven-publish")
+    id("signing")
+    id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
 }
+
+group = (findProperty("GROUP") as String?) ?: "ai.synheart"
+version = (findProperty("VERSION_NAME") as String?) ?: "0.3.0"
 
 android {
     namespace = "ai.synheart.wear"
@@ -36,6 +44,12 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
     }
 }
 
@@ -80,19 +94,28 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
 
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    val dokkaJavadoc = tasks.named<DokkaTask>("dokkaJavadoc")
+    dependsOn(dokkaJavadoc)
+    from(dokkaJavadoc.flatMap { it.outputDirectory })
+}
+
 publishing {
     publications {
         create<MavenPublication>("release") {
-            groupId = "ai.synheart"
+            groupId = project.group.toString()
             artifactId = "synheart-wear"
-            version = "0.3.0"
+            version = project.version.toString()
 
             afterEvaluate {
                 from(components["release"])
             }
 
+            artifact(javadocJar)
+
             pom {
-                name.set("Synheart Wear Android SDK")
+                name.set("Synheart Wear")
                 description.set("Unified wearable SDK for Android - Stream biometric data from multiple devices")
                 url.set("https://github.com/synheart-ai/synheart-wear-android")
 
@@ -117,6 +140,58 @@ publishing {
                     url.set("https://github.com/synheart-ai/synheart-wear-android")
                 }
             }
+        }
+    }
+}
+
+signing {
+    val signingKeyId =
+        (findProperty("SIGNING_KEY_ID") as String?) ?: System.getenv("SIGNING_KEY_ID")
+    val signingKey =
+        (findProperty("SIGNING_KEY") as String?)
+            ?: System.getenv("SIGNING_KEY")
+            ?: (findProperty("GPG_PRIVATE_KEY") as String?)
+            ?: System.getenv("GPG_PRIVATE_KEY")
+    val signingPassword =
+        (findProperty("SIGNING_PASSWORD") as String?)
+            ?: System.getenv("SIGNING_PASSWORD")
+            ?: (findProperty("GPG_PASSPHRASE") as String?)
+            ?: System.getenv("GPG_PASSPHRASE")
+
+    setRequired {
+        val isPublishingOrSigning = gradle.taskGraph.allTasks.any { task ->
+            task.name.contains("publish", ignoreCase = true) ||
+                task.name.contains("close", ignoreCase = true) ||
+                task.name.contains("release", ignoreCase = true) ||
+                task.name.contains("sign", ignoreCase = true)
+        }
+        isPublishingOrSigning && signingKey != null && signingPassword != null
+    }
+
+    if (signingKey != null && signingPassword != null) {
+        val normalizedKeyId = signingKeyId
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            // Gradle expects a hex key id (typically 8 or 16 hex chars), optionally prefixed with 0x
+            ?.takeIf { Regex("^(0x)?[0-9A-Fa-f]{8,16}$").matches(it) }
+
+        if (normalizedKeyId != null) {
+            useInMemoryPgpKeys(normalizedKeyId, signingKey, signingPassword)
+        } else {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
+    }
+
+    sign(publishing.publications)
+}
+
+nexusPublishing {
+    repositories {
+        // Sonatype Central (OSSRH staging API) - see:
+        // https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#configuration
+        sonatype {
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
         }
     }
 }

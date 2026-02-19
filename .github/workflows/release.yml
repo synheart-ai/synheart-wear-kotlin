@@ -33,8 +33,17 @@ jobs:
       - name: Run tests
         run: ./gradlew test --no-daemon --stacktrace
         
-      - name: Verify publishing configuration
-        run: ./gradlew publishToMavenLocal --no-daemon --stacktrace
+      - name: Publish to Maven Central (Sonatype Central)
+        env:
+          # Sonatype Central portal token (recommended) or username/password
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
+
+          # PGP signing (ASCII-armored private key + passphrase)
+          # These secret names match `.env` on dev machines.
+          ORG_GRADLE_PROJECT_SIGNING_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_SIGNING_PASSWORD: ${{ secrets.GPG_PASSPHRASE }}
+        run: ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository --no-daemon --stacktrace
         
       - name: Upload release AAR
         uses: actions/upload-artifact@v4
@@ -42,11 +51,4 @@ jobs:
           name: release-aar
           path: build/outputs/aar/*.aar
           retention-days: 30
-          
-      - name: Notify JitPack
-        if: github.event_name == 'release'
-        run: |
-          echo "Release ${{ github.event.release.tag_name }} created"
-          echo "JitPack will build this release automatically"
-          echo "Check status at: https://jitpack.io/com/github/${{ github.repository }}/${{ github.event.release.tag_name }}/build.log"
 

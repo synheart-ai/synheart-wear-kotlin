@@ -979,6 +979,14 @@ try {
 - Users must grant permissions through Health Connect's permission UI
 - Test on devices with Health Connect installed before production deployment
 
+## ⌚ Real-Time Watch Data
+
+Due to Health Connect and Health Services API limitations, real-time biometric streaming (HR, HRV, accelerometer) on Android requires an active exercise session on the watch. For real-time session-based data, use the Synheart Wear OS watch companion app alongside the [Synheart Session SDK](https://github.com/synheart-ai/synheart-session):
+
+- [synheart-wear-watch-android](https://github.com/synheart-ai/synheart-wear-watch-android) — Wear OS companion app (Health Services exercise mode, MessageClient/DataClient relay)
+
+This SDK handles non-realtime and historical data (daily HR, HRV, steps, sleep, etc.) which does not require an exercise session.
+
 ## 🤝 Contributing
 
 We welcome contributions! See the main repository's [Contributing Guidelines](https://github.com/synheart-ai/synheart-wear/blob/main/CONTRIBUTING.md) for details.

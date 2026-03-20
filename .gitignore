@@ -141,3 +141,8 @@ swagger.json
 # Garmin RTS companion (cloned at build time)
 .garmin/
 publish-maven-central.sh
+
+# Secrets & credentials
+*.asc
+*.key
+*private*

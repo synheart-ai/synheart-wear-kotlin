@@ -11,6 +11,7 @@ import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -139,22 +140,23 @@ class HealthConnectAdapter(
     }
 
     override fun getPermissionStatus(): Map<PermissionType, Boolean> {
-        // This should be called asynchronously, but providing sync access
         return try {
-            val granted = runCatching {
-                // Note: This requires suspending, but interface is sync
-                // In practice, apps should check permissions before calling this
-                mapOf(
-            PermissionType.HEART_RATE to true,
-            PermissionType.HRV to true,
-            PermissionType.STEPS to true,
-                    PermissionType.CALORIES to true,
-                    PermissionType.DISTANCE to true,
-                    PermissionType.EXERCISE to true,
-                    PermissionType.SLEEP to true
-                )
-            }.getOrDefault(emptyMap())
-            granted
+            val granted = runBlocking {
+                healthConnectClient.permissionController.getGrantedPermissions()
+            }
+            val allPermissions = setOf(
+                PermissionType.HEART_RATE,
+                PermissionType.HRV,
+                PermissionType.STEPS,
+                PermissionType.CALORIES,
+                PermissionType.DISTANCE,
+                PermissionType.EXERCISE,
+                PermissionType.SLEEP
+            )
+            allPermissions.associateWith { permType ->
+                val perms = getHealthConnectPermissions(setOf(permType))
+                perms.all { it in granted }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting permission status: ${e.message}", e)
             emptyMap()

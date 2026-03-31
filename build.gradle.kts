@@ -2,6 +2,7 @@ plugins {
     id("com.android.library") version "9.0.0-rc02"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
     id("org.jetbrains.dokka") version "2.0.0"
+    id("com.google.protobuf") version "0.9.6"
     id("maven-publish")
     id("signing")
     id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
@@ -74,6 +75,12 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // gRPC + Protobuf (RAMEN real-time event streaming)
+    implementation("io.grpc:grpc-okhttp:1.62.2")
+    implementation("io.grpc:grpc-stub:1.62.2")
+    implementation("io.grpc:grpc-kotlin-stub:1.4.1")
+    implementation("com.google.protobuf:protobuf-kotlin-lite:3.25.3")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.0")
@@ -83,6 +90,31 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.25.3"
+    }
+    plugins {
+        create("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.62.2"
+        }
+        create("grpckt") {
+            artifact = "io.grpc:protoc-gen-grpc-kotlin:1.4.1:jdk8@jar"
+        }
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("kotlin") { option("lite") }
+            }
+            task.plugins {
+                create("grpc") { option("lite") }
+                create("grpckt") { option("lite") }
+            }
+        }
+    }
 }
 
 val javadocJar by tasks.registering(Jar::class) {

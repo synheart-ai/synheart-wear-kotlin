@@ -51,6 +51,18 @@ Even small documentation fixes are best filed as an issue. Quote the section,
 suggest the change, and we will roll it into the next internal sync. This
 keeps a single contribution path and avoids ambiguity about what is in scope.
 
+## Tests
+
+Two patterns coexist; pick the right one. See
+[`src/test/kotlin/ai/synheart/wear/README.md`](src/test/kotlin/ai/synheart/wear/README.md)
+for the full guide and the `WhoopProviderMockServerTest` reference.
+
+- **MockK + `apiOverride`** (`WhoopProviderTest` et al.) — fast unit tests for
+  provider state transitions, OAuth flow shape, local persistence.
+- **`MockWebServer`** (`WhoopProviderMockServerTest`) — full-stack integration
+  tests for HTTP-status mapping, JSON decode, header/auth handling, network
+  failure modes.
+
 ## Code of conduct
 
 Be respectful in issues and discussions. We reserve the right to close issues

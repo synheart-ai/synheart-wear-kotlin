@@ -2,6 +2,9 @@ package ai.synheart.wear.adapters
 
 import android.content.Context
 import android.util.Log
+import ai.synheart.wear.backfill.HealthHistoryReader
+import ai.synheart.wear.backfill.OvernightPhysiologySummary
+import ai.synheart.wear.backfill.SleepNightSummary
 import ai.synheart.wear.models.*
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.health.connect.client.HealthConnectClient
@@ -14,6 +17,8 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
@@ -29,7 +34,7 @@ import java.time.temporal.ChronoUnit
 @OptIn(InternalSerializationApi::class)
 class HealthConnectAdapter(
     private val context: Context
-) : WearAdapter {
+) : WearAdapter, HealthHistoryReader {
 
     override val id: String = "health_connect"
 
@@ -363,6 +368,136 @@ class HealthConnectAdapter(
             false
         }
     }
+
+    // ────────────────────────────────────────────────────────────── //
+    // HealthHistoryReader — historical aggregations consumed by
+    // synheart-core's HealthConnectRuntimeSink for SRM backfill.
+    // ────────────────────────────────────────────────────────────── //
+
+    /**
+     * Sleep sessions across `[start, end)` bucketed by **local wake-day**
+     * (the day the session ended in [zone]). Stages are summed when
+     * present; absent stages mean the session contributes only to
+     * `totalAsleepMinutes` (via session duration).
+     *
+     * Multiple sessions on the same wake-day are merged into one
+     * summary (sums across sessions). Returns an empty map when the
+     * platform retained nothing — Health Connect typically keeps
+     * sleep records for 1–2 years.
+     */
+    override suspend fun fetchSleepNights(
+        start: Instant,
+        end: Instant,
+        zone: ZoneId,
+    ): Map<LocalDate, SleepNightSummary> {
+        ensureClient()
+        val records = readSleepSessions(start, end)
+
+        val byDay = mutableMapOf<LocalDate, MutableList<SleepSessionRecord>>()
+        for (r in records) {
+            val wakeDay = r.endTime.atZone(zone).toLocalDate()
+            byDay.getOrPut(wakeDay) { mutableListOf() }.add(r)
+        }
+
+        return byDay.mapValues { (_, sessions) ->
+            var asleep = 0.0
+            var deep: Double? = null
+            var rem: Double? = null
+            for (session in sessions) {
+                if (session.stages.isEmpty()) {
+                    asleep += minutesBetween(session.startTime, session.endTime)
+                    continue
+                }
+                for (stage in session.stages) {
+                    val mins = minutesBetween(stage.startTime, stage.endTime)
+                    when (stage.stage) {
+                        SleepSessionRecord.STAGE_TYPE_AWAKE,
+                        SleepSessionRecord.STAGE_TYPE_OUT_OF_BED,
+                        SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED -> Unit
+                        SleepSessionRecord.STAGE_TYPE_DEEP -> {
+                            asleep += mins
+                            deep = (deep ?: 0.0) + mins
+                        }
+                        SleepSessionRecord.STAGE_TYPE_REM -> {
+                            asleep += mins
+                            rem = (rem ?: 0.0) + mins
+                        }
+                        else -> asleep += mins // LIGHT, SLEEPING, UNKNOWN
+                    }
+                }
+            }
+            SleepNightSummary(asleep, deep, rem)
+        }
+    }
+
+    /**
+     * Resting HR and HRV-RMSSD averaged over each night's sleep
+     * window(s), keyed by local wake-day.
+     *
+     * Implementation: pull all HR / HRV samples in `[start, end)`
+     * once, then for each sleep session take samples whose timestamp
+     * falls inside the session window and average per wake-day.
+     * Days without a sleep session are omitted (matches Flutter's
+     * "overnight only" semantic).
+     *
+     * Health Connect's retention for HR samples is platform-defined
+     * and typically much shorter than sleep retention (~30 days).
+     * Expect this map to be sparser than [fetchSleepNights] for long
+     * windows.
+     */
+    override suspend fun fetchOvernightPhysiology(
+        start: Instant,
+        end: Instant,
+        zone: ZoneId,
+    ): Map<LocalDate, OvernightPhysiologySummary> {
+        ensureClient()
+        val timeRange = TimeRangeFilter.between(start, end)
+
+        val sleepSessions = readSleepSessions(start, end)
+        if (sleepSessions.isEmpty()) return emptyMap()
+
+        val hrSamples = readHeartRate(timeRange)
+            .flatMap { rec -> rec.samples.map { it.time to it.beatsPerMinute.toDouble() } }
+        val hrvSamples = readHRV(timeRange)
+            .map { it.time to it.heartRateVariabilityMillis }
+
+        data class Acc(
+            var hrSum: Double = 0.0, var hrN: Int = 0,
+            var hrvSum: Double = 0.0, var hrvN: Int = 0,
+        )
+        val byDay = mutableMapOf<LocalDate, Acc>()
+
+        for (session in sleepSessions) {
+            val wakeDay = session.endTime.atZone(zone).toLocalDate()
+            val acc = byDay.getOrPut(wakeDay) { Acc() }
+            for ((t, bpm) in hrSamples) {
+                if (!t.isBefore(session.startTime) && t.isBefore(session.endTime)) {
+                    acc.hrSum += bpm; acc.hrN++
+                }
+            }
+            for ((t, rmssd) in hrvSamples) {
+                if (!t.isBefore(session.startTime) && t.isBefore(session.endTime)) {
+                    acc.hrvSum += rmssd; acc.hrvN++
+                }
+            }
+        }
+
+        return byDay.mapValues { (_, a) ->
+            OvernightPhysiologySummary(
+                hrvRmssdMs = if (a.hrvN > 0) a.hrvSum / a.hrvN else null,
+                restingHrBpm = if (a.hrN > 0) a.hrSum / a.hrN else null,
+            )
+        }
+    }
+
+    private fun ensureClient() {
+        if (!::healthConnectClient.isInitialized) {
+            healthConnectClient = HealthConnectClient.getOrCreate(context)
+        }
+    }
+
+    private fun minutesBetween(start: Instant, end: Instant): Double =
+        (end.toEpochMilli() - start.toEpochMilli()) / 60_000.0
 
     /**
      * Get detailed availability status

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **BLE HRM: a low-latency connection is requested before subscribing to HR
+  notifications.** On the platform's default (balanced) connection interval a
+  chest strap that reports one notification per heartbeat cannot always get
+  every beat across once the heart rate passes roughly 70 bpm, and it drops
+  the beats it could not send. The HR value stays plausible, so the loss was
+  invisible; only the RR series came up short. `CONNECTION_PRIORITY_HIGH` is
+  now requested on connect. Advisory: the stack may decline.
+
 ## [0.4.0] - 2026-05-15
 
 First public release. Adds Fitbit + Oura cloud providers to reach

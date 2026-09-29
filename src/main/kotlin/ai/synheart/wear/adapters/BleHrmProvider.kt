@@ -97,6 +97,25 @@ class BleHrmProvider(private val context: Context) {
 
     // GATT callback
     @SuppressLint("MissingPermission")
+    /**
+     * Ask for a low-latency connection interval before enabling HR notifications.
+     *
+     * Chest straps that report RR intervals send one notification per heartbeat.
+     * On the platform's default (balanced) interval the link cannot always carry
+     * a notification per beat once heart rate climbs past roughly 70 bpm, and the
+     * strap drops the beats it could not send rather than queueing them. The HR
+     * value stays plausible, so the loss is invisible downstream; only the RR
+     * series is short. A high-priority interval keeps up with any human heart
+     * rate. Best-effort: the call is advisory and the stack may decline.
+     */
+    private fun requestLowLatency(gatt: BluetoothGatt) {
+        try {
+            gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
+        } catch (_: SecurityException) {
+            // Missing BLUETOOTH_CONNECT at this point would already have failed connectGatt.
+        }
+    }
+
     private val gattCallback = object : BluetoothGattCallback() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -105,6 +124,7 @@ class BleHrmProvider(private val context: Context) {
                     Log.d(TAG, "Connected to GATT server")
                     isReconnecting = false
                     reconnectAttempt = 0
+                    requestLowLatency(gatt)
                     gatt.discoverServices()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {

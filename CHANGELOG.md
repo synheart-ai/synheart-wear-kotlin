@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-02
+
+### Fixed
+- **BLE HRM: a low-latency connection is requested before subscribing to HR
+  notifications.** On the platform's default (balanced) connection interval a
+  chest strap that reports one notification per heartbeat cannot always get
+  every beat across once the heart rate passes roughly 70 bpm, and it drops
+  the beats it could not send. The HR value stays plausible, so the loss was
+  invisible; only the RR series came up short. `CONNECTION_PRIORITY_HIGH` is
+  now requested on connect. Advisory: the stack may decline.
+
+## [0.4.1] - 2026-05-27
+
+### Added
+- `HealthHistoryReader` contract for historical Health Connect reads
+  (backfill) (#17).
+- MockWebServer integration test scaffold.
+
+### CI
+- All workflows opt into Node 24 (June 2026 deprecation prep).
+- close-external-prs org-membership check repaired.
+
 ## [0.4.0] - 2026-05-15
 
 First public release. Adds Fitbit + Oura cloud providers to reach
@@ -94,7 +116,9 @@ long-term stability.
 ### Fixed
 - Various stability improvements and test coverage updates.
 
-[Unreleased]: https://github.com/synheart-ai/synheart-wear-kotlin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/synheart-ai/synheart-wear-kotlin/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/synheart-ai/synheart-wear-kotlin/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/synheart-ai/synheart-wear-kotlin/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/synheart-ai/synheart-wear-kotlin/releases/tag/v0.4.0
 [0.3.0]: https://github.com/synheart-ai/synheart-wear-kotlin/releases/tag/v0.3.0
 

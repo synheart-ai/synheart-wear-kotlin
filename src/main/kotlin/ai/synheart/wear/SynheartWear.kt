@@ -14,6 +14,7 @@ import ai.synheart.wear.adapters.BleHrmProvider
 import ai.synheart.wear.adapters.GarminHealth
 import ai.synheart.wear.cache.LocalCache
 import ai.synheart.wear.consent.ConsentManager
+import ai.synheart.wear.internal.RealtimeReadGate
 import ai.synheart.wear.normalization.Normalizer
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
@@ -29,6 +30,12 @@ import kotlinx.serialization.InternalSerializationApi
  * @param config SDK configuration
  */
 @OptIn(InternalSerializationApi::class)
+/** Minimum spacing of real-time Health Connect reads; see `healthStoreGate`. */
+private const val HEALTH_STORE_MIN_INTERVAL_MS = 10_000L
+
+/** Minimum spacing of real-time cloud recovery fetches; see `cloudRecoveryGate`. */
+private const val CLOUD_RECOVERY_MIN_INTERVAL_MS = 15 * 60_000L
+
 class SynheartWear(
     private val context: Context,
     private val config: SynheartWearConfig = SynheartWearConfig()
@@ -52,6 +59,22 @@ class SynheartWear(
 
     // BLE HRM provider
     private var _bleHrmProvider: BleHrmProvider? = null
+
+    /**
+     * Real-time reads are the streaming ticks (`streamHR` / `streamHRV`, every
+     * 1-3 s). Health Connect is a sync store with a per-app read quota that
+     * receives watch data in batches seconds to minutes apart, and each read
+     * is five queries (HR, HRV, steps, calories, distance), so ticks faster
+     * than this only spend quota re-reading the same samples.
+     */
+    private val healthStoreGate = RealtimeReadGate(HEALTH_STORE_MIN_INTERVAL_MS)
+
+    /**
+     * Cloud recovery records (WHOOP, Garmin, Fitbit, Oura) change a few times
+     * a day; fetching them over the network on every streaming tick was pure
+     * load on the vendor APIs and the device radio.
+     */
+    private val cloudRecoveryGate = RealtimeReadGate(CLOUD_RECOVERY_MIN_INTERVAL_MS)
 
     // Garmin Health SDK provider (native device integration)
     private var _garminHealth: GarminHealth? = null
@@ -195,8 +218,13 @@ class SynheartWear(
 
             val allMetrics = mutableListOf<WearMetrics>()
 
-            // Gather data from enabled adapters (Health Connect, etc.)
-            val adapterData = enabledAdapters().mapNotNull { adapter ->
+            val nowMs = System.currentTimeMillis()
+
+            // Gather data from enabled adapters (Health Connect, etc.). A
+            // real-time tick inside the health-store interval skips them.
+            val readHealthStore = !isRealTime || healthStoreGate.tryAcquire(nowMs)
+            val adapters = if (readHealthStore) enabledAdapters() else emptyList()
+            val adapterData = adapters.mapNotNull { adapter ->
                 try {
                     adapter.readSnapshot(isRealTime)
                 } catch (e: Exception) {
@@ -221,10 +249,12 @@ class SynheartWear(
                     android.util.Log.w("SynheartWear", "Failed to read $name metrics: ${e.message}")
                 }
             }
-            if (DeviceAdapter.WHOOP  in config.enabledAdapters) pullLatest("WHOOP",  whoopProvider)
-            if (DeviceAdapter.GARMIN in config.enabledAdapters) pullLatest("Garmin", garminProvider)
-            if (DeviceAdapter.FITBIT in config.enabledAdapters) pullLatest("Fitbit", fitbitProvider)
-            if (DeviceAdapter.OURA   in config.enabledAdapters) pullLatest("Oura",   ouraProvider)
+            if (!isRealTime || cloudRecoveryGate.tryAcquire(nowMs)) {
+                if (DeviceAdapter.WHOOP  in config.enabledAdapters) pullLatest("WHOOP",  whoopProvider)
+                if (DeviceAdapter.GARMIN in config.enabledAdapters) pullLatest("Garmin", garminProvider)
+                if (DeviceAdapter.FITBIT in config.enabledAdapters) pullLatest("Fitbit", fitbitProvider)
+                if (DeviceAdapter.OURA   in config.enabledAdapters) pullLatest("Oura",   ouraProvider)
+            }
 
             // Include BLE HRM last sample if connected
             _bleHrmProvider?.let { bleProvider ->

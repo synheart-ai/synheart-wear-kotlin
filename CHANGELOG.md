@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-07
+
+### Fixed
+- **Real-time reads are rate-limited.** `streamHR` / `streamHRV` call
+  `readMetrics(isRealTime = true)` every tick (1-3 s), and each call ran five
+  Health Connect queries (HR, HRV, steps, calories, distance) plus a network
+  fetch of the latest recovery record from every connected cloud provider.
+  Health Connect has a per-app read quota and receives watch data in batches,
+  so most of those reads returned the same samples. Real-time ticks now read
+  Health Connect at most every 10 s and cloud recovery at most every 15 min;
+  ticks in between carry only the live BLE HRM sample (or nothing). Non
+  real-time reads are unchanged.
+
 ## [0.4.2] - 2026-10-02
 
 ### Fixed

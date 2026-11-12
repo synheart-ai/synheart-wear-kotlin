@@ -18,7 +18,7 @@ val pomArtifactId: String = (findProperty("POM_ARTIFACT_ID") as String?) ?: "syn
 
 android {
     namespace = "ai.synheart.wear"
-    compileSdk = 34
+    compileSdk = 36
 
     lint {
         // CI runs `lint` separately; don't fail `build`/publishing on lint issues.

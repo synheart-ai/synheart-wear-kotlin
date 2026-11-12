@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ai.synheart.wear.example"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ai.synheart.wear.example"

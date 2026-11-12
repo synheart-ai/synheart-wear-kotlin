@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `compileSdk` raised to 36.
+- `minSdk` raised from 21 to 26, the minimum of the Health Connect client this
+  SDK depends on. An app below API 26 already failed at manifest merge.
 
 ### Fixed
 - **The local cache is now encrypted.** `enableEncryption` was accepted but

@@ -793,6 +793,11 @@ Log.d(TAG, "HR permission: ${status[PermissionType.HEART_RATE]}")
 
 ### Local Storage
 
+With `enableEncryption = true` (the default), each cached session is sealed
+with AES-256-GCM under a key held in the Android Keystore. Tampered records
+are dropped, and on API < 23, where the Keystore can't hold an AES key,
+sessions are not cached rather than stored unencrypted.
+
 ```kotlin
 // Get cached sessions
 val sessions = synheartWear.getCachedSessions(

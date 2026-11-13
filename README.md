@@ -1,7 +1,7 @@
 # Synheart Wear - Android SDK
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Android API 21+](https://img.shields.io/badge/API-21%2B-brightgreen.svg)](https://android-arsenal.com/api?level=21)
+[![Android API 26+](https://img.shields.io/badge/API-26%2B-brightgreen.svg)](https://android-arsenal.com/api?level=26)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3-blue.svg)](https://kotlinlang.org)
 [![Maven Central](https://img.shields.io/maven-central/v/ai.synheart/synheart-wear.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/ai.synheart/synheart-wear)
 
@@ -32,11 +32,11 @@ Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("ai.synheart:synheart-wear:0.4.3")
+    implementation("ai.synheart:synheart-wear:0.4.4")
 }
 ```
 
-> **Note**: Replace `0.4.3` with the latest release version from Maven Central.
+> **Note**: Replace `0.4.4` with the latest release version from Maven Central.
 
 ### Changelog
 
@@ -44,7 +44,7 @@ See [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Requirements
 
-- **Android SDK**: API 21+ (Android 5.0 Lollipop)
+- **Android SDK**: API 26+ (Android 8.0 Oreo), the Health Connect client minimum
 - **Target SDK**: API 34+ (Android 14)
 - **Kotlin**: 2.3+
 - **Android Gradle Plugin**: 9.0+ (Gradle 9.2+)
@@ -792,6 +792,11 @@ Log.d(TAG, "HR permission: ${status[PermissionType.HEART_RATE]}")
 ```
 
 ### Local Storage
+
+With `enableEncryption = true` (the default), each cached session is sealed
+with AES-256-GCM under a key held in the Android Keystore. Tampered records
+are dropped, and on API < 23, where the Keystore can't hold an AES key,
+sessions are not cached rather than stored unencrypted.
 
 ```kotlin
 // Get cached sessions

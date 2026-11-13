@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-11-12
+
+### Changed
+- `compileSdk` raised to 36.
+- `minSdk` raised from 21 to 26, the minimum of the Health Connect client this
+  SDK depends on. An app below API 26 already failed at manifest merge.
+
+### Fixed
+- **The local cache is now encrypted.** `enableEncryption` was accepted but
+  ignored: sessions were written in the clear, and `getCachedSessions()`
+  always returned an empty list. Sessions are now sealed with AES-256-GCM
+  under a key held in the Android Keystore, read back newest first, and a
+  tampered record is dropped instead of returned. On API < 23, where the
+  Keystore can't hold an AES key, sessions are not cached rather than stored
+  unencrypted. Plaintext files left by earlier versions are deleted when
+  encryption is on.
+
 ## [0.4.3] - 2026-10-07
 
 ### Fixed

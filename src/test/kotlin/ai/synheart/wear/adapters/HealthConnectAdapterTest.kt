@@ -57,6 +57,7 @@ class HealthConnectAdapterTest {
         // Then
         assertTrue(permissions.isNotEmpty())
         assertTrue(permissions.any { it.contains("HEART_RATE") })
+        assertTrue(permissions.any { it.contains("RESTING_HEART_RATE") })
     }
 
     @Test

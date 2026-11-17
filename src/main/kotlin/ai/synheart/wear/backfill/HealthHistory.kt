@@ -35,13 +35,20 @@ data class SleepNightSummary(
 /**
  * Per-night overnight physiology keyed by local wake-day.
  *
- * HR and HRV-RMSSD are averaged over the sleep window(s) for that day.
- * A field is null when no in-sleep samples were available — the
- * runtime treats nulls as "missing for this day" rather than zero.
+ * [overnightHrBpm] and [hrvRmssdMs] are averaged over the sleep window(s)
+ * for that day. [restingHrBpm] is Health Connect's resting-heart-rate
+ * record for the day (the median when there are several); it is null when
+ * the store has none or the app can't read it, and is never derived from
+ * the sleep samples. Before 0.4.5 it carried the mean heart rate asleep,
+ * which is now [overnightHrBpm].
+ *
+ * A field is null when there was nothing to read — the runtime treats
+ * nulls as "missing for this day" rather than zero.
  */
 data class OvernightPhysiologySummary(
     val hrvRmssdMs: Double?,
     val restingHrBpm: Double?,
+    val overnightHrBpm: Double? = null,
 )
 
 /**

@@ -5,6 +5,8 @@ import android.util.Log
 import ai.synheart.wear.backfill.HealthHistoryReader
 import ai.synheart.wear.backfill.OvernightPhysiologySummary
 import ai.synheart.wear.backfill.SleepNightSummary
+import ai.synheart.wear.backfill.SleepWindow
+import ai.synheart.wear.backfill.summarizeOvernight
 import ai.synheart.wear.models.*
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.health.connect.client.HealthConnectClient
@@ -68,8 +70,11 @@ class HealthConnectAdapter(
     internal fun getHealthConnectPermissions(permissions: Set<PermissionType>): Set<String> {
         return permissions.flatMap { permType ->
             when (permType) {
+                // Resting HR rides with heart rate: the overnight history
+                // reads it, and the SDK's manifest already declares it.
                 PermissionType.HEART_RATE -> listOf(
-                    HealthPermission.getReadPermission(HeartRateRecord::class)
+                    HealthPermission.getReadPermission(HeartRateRecord::class),
+                    HealthPermission.getReadPermission(RestingHeartRateRecord::class)
                 )
                 PermissionType.HRV -> listOf(
                     HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class)
@@ -431,14 +436,15 @@ class HealthConnectAdapter(
     }
 
     /**
-     * Resting HR and HRV-RMSSD averaged over each night's sleep
-     * window(s), keyed by local wake-day.
+     * Overnight heart rate and HRV-RMSSD averaged over each night's sleep
+     * window(s), plus the day's resting-heart-rate record, keyed by local
+     * wake-day.
      *
-     * Implementation: pull all HR / HRV samples in `[start, end)`
-     * once, then for each sleep session take samples whose timestamp
-     * falls inside the session window and average per wake-day.
-     * Days without a sleep session are omitted (matches Flutter's
-     * "overnight only" semantic).
+     * Implementation: pull all HR / HRV samples in `[start, end)` once, then
+     * for each sleep session take the samples whose timestamp falls inside
+     * the session and average per wake-day. Resting heart rate comes only
+     * from `RestingHeartRateRecord`; a day without one has none, and a day
+     * with a record but no sleep session still gets an entry.
      *
      * Health Connect's retention for HR samples is platform-defined
      * and typically much shorter than sleep retention (~30 days).
@@ -453,41 +459,36 @@ class HealthConnectAdapter(
         ensureClient()
         val timeRange = TimeRangeFilter.between(start, end)
 
-        val sleepSessions = readSleepSessions(start, end)
-        if (sleepSessions.isEmpty()) return emptyMap()
+        val windows = readSleepSessions(start, end).map { SleepWindow(it.startTime, it.endTime) }
+        val restingHr = readRestingHeartRateOrEmpty(timeRange)
+        if (windows.isEmpty() && restingHr.isEmpty()) return emptyMap()
 
-        val hrSamples = readHeartRate(timeRange)
+        // Without a sleep session there is nothing to average the samples over.
+        val hrSamples = if (windows.isEmpty()) emptyList() else readHeartRate(timeRange)
             .flatMap { rec -> rec.samples.map { it.time to it.beatsPerMinute.toDouble() } }
-        val hrvSamples = readHRV(timeRange)
+        val hrvSamples = if (windows.isEmpty()) emptyList() else readHRV(timeRange)
             .map { it.time to it.heartRateVariabilityMillis }
 
-        data class Acc(
-            var hrSum: Double = 0.0, var hrN: Int = 0,
-            var hrvSum: Double = 0.0, var hrvN: Int = 0,
-        )
-        val byDay = mutableMapOf<LocalDate, Acc>()
+        return summarizeOvernight(windows, hrSamples, hrvSamples, restingHr, zone)
+    }
 
-        for (session in sleepSessions) {
-            val wakeDay = session.endTime.atZone(zone).toLocalDate()
-            val acc = byDay.getOrPut(wakeDay) { Acc() }
-            for ((t, bpm) in hrSamples) {
-                if (!t.isBefore(session.startTime) && t.isBefore(session.endTime)) {
-                    acc.hrSum += bpm; acc.hrN++
-                }
-            }
-            for ((t, rmssd) in hrvSamples) {
-                if (!t.isBefore(session.startTime) && t.isBefore(session.endTime)) {
-                    acc.hrvSum += rmssd; acc.hrvN++
-                }
-            }
-        }
-
-        return byDay.mapValues { (_, a) ->
-            OvernightPhysiologySummary(
-                hrvRmssdMs = if (a.hrvN > 0) a.hrvSum / a.hrvN else null,
-                restingHrBpm = if (a.hrN > 0) a.hrSum / a.hrN else null,
+    /**
+     * Resting-heart-rate records in [timeRange]. Read on its own because the
+     * app may not hold this permission, and that must not fail the HR and HRV
+     * reads.
+     */
+    private suspend fun readRestingHeartRateOrEmpty(
+        timeRange: TimeRangeFilter,
+    ): List<Pair<Instant, Double>> = try {
+        healthConnectClient.readRecords(
+            ReadRecordsRequest(
+                recordType = RestingHeartRateRecord::class,
+                timeRangeFilter = timeRange,
             )
-        }
+        ).records.map { it.time to it.beatsPerMinute.toDouble() }
+    } catch (e: SecurityException) {
+        Log.d(TAG, "No resting heart rate read: ${e.message}")
+        emptyList()
     }
 
     private fun ensureClient() {

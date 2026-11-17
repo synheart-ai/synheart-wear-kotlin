@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-11-17
+
+### Fixed
+- **`OvernightPhysiologySummary.restingHrBpm` is the resting heart rate.**
+  `fetchOvernightPhysiology` put the mean heart rate while asleep there. It
+  now reads Health Connect's `RestingHeartRateRecord` (the day's median when
+  there are several) and is null on a day without one. The asleep mean moves
+  to the new `overnightHrBpm` field. A day with a resting-HR record but no
+  sleep session now gets an entry.
+
+### Changed
+- `PermissionType.HEART_RATE` also requests `READ_RESTING_HEART_RATE`, which
+  the SDK's manifest already declares. Without it the resting-HR read is
+  skipped; heart rate and HRV are still read.
+
 ## [0.4.4] - 2026-11-12
 
 ### Changed

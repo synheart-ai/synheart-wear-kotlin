@@ -32,11 +32,11 @@ Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("ai.synheart:synheart-wear:0.4.4")
+    implementation("ai.synheart:synheart-wear:0.4.5")
 }
 ```
 
-> **Note**: Replace `0.4.4` with the latest release version from Maven Central.
+> **Note**: Replace `0.4.5` with the latest release version from Maven Central.
 
 ### Changelog
 

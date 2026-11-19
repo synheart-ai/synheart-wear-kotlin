@@ -8,6 +8,10 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
+# Read-only token: Maven publishing uses the Sonatype secrets, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build and Validate Release

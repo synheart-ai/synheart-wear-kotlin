@@ -13,6 +13,13 @@ updates:
     directory: "/"
     patterns: ["*"]
     multi-ecosystem-group: dependency-updates
+    ignore:
+      # Majors are upgraded by hand and tested on a device.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # 1.2 needs compileSdk 37, which every consumer would inherit.
+      - dependency-name: "androidx.health.connect:connect-client"
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: "/"

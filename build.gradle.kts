@@ -1,12 +1,12 @@
 import java.util.Base64
 
 plugins {
-    id("com.android.library") version "9.0.0-rc02"
-    id("com.android.application") version "9.0.0-rc02" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.3.0" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
-    id("org.jetbrains.dokka") version "2.0.0"
-    id("com.google.protobuf") version "0.10.0"
+    id("com.android.library") version "9.6.0-alpha06"
+    id("com.android.application") version "9.6.0-alpha06" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.21" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
+    id("org.jetbrains.dokka") version "2.3.0"
+    id("com.google.protobuf") version "0.10.1"
     id("maven-publish")
     id("signing")
     id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
@@ -96,47 +96,47 @@ android {
 
 dependencies {
     // Core library desugaring for Java 8+ APIs on older Android versions
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.21")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // AndroidX
     implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
 
     // Health Connect
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
 
     // Encryption
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.security:security-crypto:1.1.0")
 
     // JSON
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
 
     // HTTP Client (Retrofit + OkHttp)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.squareup.retrofit2:retrofit:2.12.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.1")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.1")
+    implementation("com.google.code.gson:gson:2.15.0")
 
     // gRPC + Protobuf (RAMEN real-time event streaming)
-    implementation("io.grpc:grpc-okhttp:1.62.2")
-    implementation("io.grpc:grpc-stub:1.62.2")
-    implementation("io.grpc:grpc-protobuf-lite:1.62.2")
-    implementation("io.grpc:grpc-kotlin-stub:1.4.1")
-    implementation("com.google.protobuf:protobuf-kotlin-lite:3.25.3")
+    implementation("io.grpc:grpc-okhttp:1.85.1")
+    implementation("io.grpc:grpc-stub:1.85.1")
+    implementation("io.grpc:grpc-protobuf-lite:1.85.1")
+    implementation("io.grpc:grpc-kotlin-stub:1.5.0")
+    implementation("com.google.protobuf:protobuf-kotlin-lite:3.25.9")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    testImplementation("io.mockk:mockk:1.13.8")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.21")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation("io.mockk:mockk:1.14.12")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.1")
+    testImplementation("org.mockito:mockito-core:5.24.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
@@ -144,11 +144,11 @@ dependencies {
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:3.25.3"
+        artifact = "com.google.protobuf:protoc:3.25.9"
     }
     plugins {
         create("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.62.2"
+            artifact = "io.grpc:protoc-gen-grpc-java:1.85.1"
         }
         create("grpckt") {
             artifact = "io.grpc:protoc-gen-grpc-kotlin:1.4.1:jdk8@jar"

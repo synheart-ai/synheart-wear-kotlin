@@ -124,9 +124,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.15.0")
 
     // gRPC + Protobuf (RAMEN real-time event streaming)
-    implementation("io.grpc:grpc-okhttp:1.85.1")
-    implementation("io.grpc:grpc-stub:1.85.1")
-    implementation("io.grpc:grpc-protobuf-lite:1.85.1")
+    implementation("io.grpc:grpc-okhttp:1.86.0")
+    implementation("io.grpc:grpc-stub:1.86.0")
+    implementation("io.grpc:grpc-protobuf-lite:1.86.0")
     implementation("io.grpc:grpc-kotlin-stub:1.5.0")
     implementation("com.google.protobuf:protobuf-kotlin-lite:3.25.9")
 
@@ -148,7 +148,7 @@ protobuf {
     }
     plugins {
         create("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.85.1"
+            artifact = "io.grpc:protoc-gen-grpc-java:1.86.0"
         }
         create("grpckt") {
             artifact = "io.grpc:protoc-gen-grpc-kotlin:1.4.1:jdk8@jar"
